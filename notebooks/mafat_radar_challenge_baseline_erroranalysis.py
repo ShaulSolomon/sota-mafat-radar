@@ -35,9 +35,12 @@ from google.colab import drive
 mount_path = '/content/gdrive/'
 drive.mount(mount_path)
 
-cd "/content/gdrive/My Drive/WORK/ML/develop/MAFAT"
+root_path = input()
+root_path
 
-"""# How to connect to github using ssh
+cd {root_path}
+
+"""## How to connect to github using ssh
 
 [https://medium.com/@ashkanpakzad/data-into-google-colab-5ddeb4f4e8](https://medium.com/@ashkanpakzad/data-into-google-colab-5ddeb4f4e8)
 
@@ -50,10 +53,10 @@ Following commands should be executed only once for setup in order to connect to
 !ssh-keygen -t rsa -b 4096 -C “hershkoy@github.com”
 
 #this is the private key. copy paste and *SAVE IT* on your local disk for any future use 
-!cat /root/.ssh/id_rsa.pub
+!cat /root/.ssh/id_rsa
 
 #this is your public key. copy-paste and upload to github (settings => SSH and GPG keys => New key)
-!cat /root/.ssh/id_rsa
+!cat /root/.ssh/id_rsa.pub
 
 !ssh-keyscan github.com >> /root/.ssh/known_hosts
 !chmod 644 /root/.ssh/known_hosts
@@ -62,7 +65,7 @@ Following commands should be executed only once for setup in order to connect to
 ```
 """
 
-!rm sota-mafat-radar
+!rm -rf sota-mafat-radar
 !ssh -T git@github.com
 !git clone git@github.com:ShaulSolomon/sota-mafat-radar.git
 
@@ -120,13 +123,7 @@ except:
   print(colored('Please mount drive and set competition_path correctly',
                 color='red'))
 
-"""## **Functions**
-
-All functions will be used in the "Training the Model" section.
-
-### **Data loading**
-
-## **Data Preprocessing**
+"""## **Data Preprocessing**
 **The preprocessing main steps:**   
 1. Applying [DFT](https://en.wikipedia.org/wiki/Discrete_Fourier_transform) (Discrete Fourier transform) by using the fast Fourier transform algorithm ([FFT](https://en.wikipedia.org/wiki/Fast_Fourier_transform)) and [Hann function](https://www.mathworks.com/help/signal/ref/hann.html) to smooth the I/Q matrix. Afterward, calculating the absolute value of the I/Q matrix complex numbers.   
 More information about Windowing and Hann function:   
@@ -307,3 +304,6 @@ with ZipFile('submission.zip', 'w') as myzip:
   myzip.write('submission.csv')
 
 files.download('submission.zip')
+
+"""# Results Investigation"""
+
