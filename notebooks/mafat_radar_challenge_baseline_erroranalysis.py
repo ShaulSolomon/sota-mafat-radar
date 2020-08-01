@@ -233,12 +233,20 @@ train_df = append_dict(training_df, train_aux)
 
 # Preprocessing and split the data to training and validation
 train_df = utils.data_preprocess(train_df.copy())
-train_x, train_y, val_x, val_y = utils.split_train_val(train_df)
+train_x, train_y, val_x, val_y, val_idx = utils.split_train_val(train_df)
+
+train_df_t = train_df.copy()
+del train_df_t['doppler_burst']
+del train_df_t['iq_sweep_burst']
+train_dff = pd.DataFrame(train_df_t)
+train_dff['is_validation']=val_idx
 
 val_y =  val_y.astype(int)
 train_y =train_y.astype(int)
 train_x = train_x.reshape(list(train_x.shape)+[1])
 val_x = val_x.reshape(list(val_x.shape)+[1])
+
+train_dff
 
 # Public test set - loading and preprocessing
 test_path = 'MAFAT RADAR Challenge - Public Test Set V1'
@@ -306,4 +314,61 @@ with ZipFile('submission.zip', 'w') as myzip:
 files.download('submission.zip')
 
 """# Results Investigation"""
+
+from sklearn.metrics import confusion_matrix
+
+threshold = 0.5
+
+cm = confusion_matrix(y_true=val_y, y_pred=(model.predict(val_x)>0.5)*1)
+cm_plot_labels = ['human','animal']
+
+utils.plot_confusion_matrix(cm=cm, classes=cm_plot_labels, title=f"Confusion Matrix threshold={threshold}")
+
+pred_val = (model.predict(val_x).flatten()>0.5)*1
+df_idx = list(train_dff[train_dff.is_validation].index)
+results_val = pd.DataFrame({'true':val_y, 'pred':pred_val,'df_idx':df_idx})
+
+# true=0, pred=0
+
+sample = results_val[(results_val.true==0) & (results_val.pred==0)]
+ind = sample.iloc[0].df_idx
+x_tmp = train_df['iq_sweep_burst'][ind]
+utils.plot_spectrogram(
+    train_df['iq_sweep_burst'][ind],
+    train_df['doppler_burst'][ind], 
+    color_map_path='/content/cmap.npy'
+    )
+
+# true=1, pred=0
+
+sample = results_val[(results_val.true==1) & (results_val.pred==0)]
+ind = sample.iloc[0].df_idx
+x_tmp = train_df['iq_sweep_burst'][ind]
+utils.plot_spectrogram(
+    train_df['iq_sweep_burst'][ind],
+    train_df['doppler_burst'][ind], 
+    color_map_path='/content/cmap.npy'
+    )
+
+# true=0, pred=1
+
+sample = results_val[(results_val.true==0) & (results_val.pred==1)]
+ind = sample.iloc[0].df_idx
+x_tmp = train_df['iq_sweep_burst'][ind]
+utils.plot_spectrogram(
+    train_df['iq_sweep_burst'][ind],
+    train_df['doppler_burst'][ind], 
+    color_map_path='/content/cmap.npy'
+    )
+
+# true=1, pred=1
+
+sample = results_val[(results_val.true==1) & (results_val.pred==1)]
+ind = sample.iloc[0].df_idx
+x_tmp = train_df['iq_sweep_burst'][ind]
+utils.plot_spectrogram(
+    train_df['iq_sweep_burst'][ind],
+    train_df['doppler_burst'][ind], 
+    color_map_path='/content/cmap.npy'
+    )
 
