@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 import itertools
+from matplotlib.colors import LinearSegmentedColormap
 
     
 spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
