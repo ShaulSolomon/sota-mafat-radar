@@ -269,7 +269,7 @@ spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
        [9.749e-01, 9.782e-01, 8.720e-02],
        [9.769e-01, 9.839e-01, 8.050e-02]])
 
-np.save('/content/cmap.npy', spectrogram_cmap)
+np.save('./data/cmap.npy', spectrogram_cmap)
 
 
 def load_data(file_path, folder=None):
@@ -458,6 +458,35 @@ def has_single_snr_type(data, id, is_segment):
                 [np.where(data['track_id'] == id)][0], axis = 0)
 
 
+def concatenate_track(data, track_id, snr_plot='both'):
+    """Concatenate segments with same track id
+    
+    Arguments:
+    data -- {dictionary} -- python dictionary of python numpy arrays
+    track_id -- {int} -- the track_id number of the wanted segments
+    snr_plot -- {str} -- If track has both high and low SNR signals which SNR to plot (Default = 'both')
+      The valid values are: 'HighSNR', 'LowSNR' or 'both'
+      
+    Returns:
+    Concatenated I/Q matrix and concatenated doppler burst vector
+    """
+    track_indices = np.where(data['track_id'] == track_id)
+    iq_list = []
+    dopller_list = []
+
+    if (snr_plot != 'both') and (not has_single_snr_type(data, track_id, False)):
+      track_indices = np.where((data['track_id'] == track_id) & (data['snr_type'] == snr_plot))
+    
+    for i in track_indices:
+        iq_list.append(data['iq_sweep_burst'][i])
+        dopller_list.append(data['doppler_burst'][i])
+      
+    iq_matrix = np.concatenate(np.concatenate(iq_list, axis=1),axis=1)
+    doppler_vector = np.concatenate(np.concatenate(dopller_list, axis=0),axis=0)
+    
+    return iq_matrix, doppler_vector
+
+    
 def spectrogram(data, segment_id=None, plot_track=False, track_id=None, snr_plot='both',
                 color_map_name='parula', color_map_path=None, save_path=None, flip=True,
                 return_spec=False):
@@ -513,19 +542,8 @@ def spectrogram(data, segment_id=None, plot_track=False, track_id=None, snr_plot
                     return_spec=return_spec)
   else:
     ''' track_id is passed, plotting the entire track '''
-    track_indices = np.where(data['track_id'] == track_id)
-    iq_list = []
-    dopller_list = []
-
-    if (snr_plot != 'both') and (not has_single_snr_type(data, track_id, False)):
-      track_indices = np.where((data['track_id'] == track_id) & (data['snr_type'] == snr_plot))
     
-    for i in track_indices:
-        iq_list.append(data['iq_sweep_burst'][i])
-        dopller_list.append(data['doppler_burst'][i])
-      
-    iq_matrix = np.concatenate(np.concatenate(iq_list, axis=1),axis=1)
-    doppler_vector = np.concatenate(np.concatenate(dopller_list, axis=0),axis=0)
+    iq_matrix, doppler_vector = concatenate_track(data, track_id, snr_plot) 
 
     plot_spectrogram(iq_burst=iq_matrix, doppler_burst=doppler_vector, 
                      color_map_name=color_map_name, color_map_path=color_map_path, 
