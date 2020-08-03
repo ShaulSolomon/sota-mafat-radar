@@ -374,8 +374,8 @@ def calculate_spectrogram(iq_burst, axis=0, flip=True):
 
 
 def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
-                    color_map_path=None, save_path=None, flip=True, return_spec=False):
-  """
+                    color_map_path=None, save_path=None, flip=True, return_spec=False, label=None):
+    """
   Plots spectrogram of 'iq_sweep_burst'.
 
   Arguments:
@@ -393,36 +393,37 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
 
   Returns:
     Spectrogram data if return_spec is True
-  """
-  if color_map_path is not None:
-      cm_data = np.load(color_map_path)
-      color_map = LinearSegmentedColormap.from_list(color_map_name, cm_data)
-  elif color_map_name == 'parula':
-      print("Error: when 'parula' color map is used, color_map_path should be provided.")
-      print("Switching color map to 'viridis'.")
-      color_map = None
-  else:
-      color_map = plt.get_cmap(color_map_name)
+    """
+    if color_map_path is not None:
+        cm_data = np.load(color_map_path)
+        color_map = LinearSegmentedColormap.from_list(color_map_name, cm_data)
+    elif color_map_name == 'parula':
+        print("Error: when 'parula' color map is used, color_map_path should be provided.")
+        print("Switching color map to 'viridis'.")
+        color_map = LinearSegmentedColormap.from_list(color_map_name, spectrogram_cmap)
+    else:
+        color_map = plt.get_cmap(color_map_name)
 
-  iq = calculate_spectrogram(iq_burst, flip=flip)
+    iq = calculate_spectrogram(iq_burst, flip=flip)
   
-  if return_spec:
-      return iq
+    if return_spec:
+        return iq
 
-  if doppler_burst is not None:
-      pixel_shift = 0.5
-      if flip:
-          plt.plot(pixel_shift + np.arange(len(doppler_burst)),
-                    pixel_shift + (len(iq) - doppler_burst), '.w')
-      else:
-          plt.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
+    if doppler_burst is not None:
+        pixel_shift = 0.5
+        if flip:
+            plt.plot(pixel_shift + np.arange(len(doppler_burst)),
+                     pixel_shift + (len(iq) - doppler_burst), '.w')
+        else:
+            plt.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
 
-  plt.imshow(iq, cmap=color_map)
-  plt.show()
-  if save_path is not None:
-      plt.imsave(save_path, iq, cmap=color_map)
+    plt.imshow(iq, cmap=color_map)
+    plt.title(label)
+    plt.show()
+    if save_path is not None:
+        plt.imsave(save_path, iq, cmap=color_map)
 
-  plt.clf()
+    plt.clf()
 
 
 def get_track_id(data, segment_id):
@@ -486,11 +487,29 @@ def concatenate_track(data, track_id, snr_plot='both'):
     
     return iq_matrix, doppler_vector
 
+
+def get_label(data, segment_id=None, track_id=None):
+    labels = data.get('target_type')
+    if labels is None:
+        print('Dataset does not have labels')
+        return labels
+    if (segment_id == None) and (track_id == None):
+        raise ValueError("You must pass segment id or track id")
+    elif (segment_id != None) and (track_id != None):
+        raise ValueError("You must pass segment id or track id, you can't pass both.")
+    elif (segment_id != None) and (track_id == None):
+        segment_index = np.where(data['segment_id'] == segment_id)
+        label = np.unique(labels[segment_index])
+    else:
+        track_indices = np.where(data['track_id'] == track_id)
+        label = np.unique(labels[track_indices])
+    assert len(label) == 1, f"More than one label in segment: {label}"
+    return label.item()
     
 def spectrogram(data, segment_id=None, plot_track=False, track_id=None, snr_plot='both',
                 color_map_name='parula', color_map_path=None, save_path=None, flip=True,
                 return_spec=False):
-  """
+    """
   Plots spectrogram of a track or of a single segment I/Q matrix ('iq_sweep_burst').
   If segment_id is passed than plots spectrogram for the specific segment,
   unless plot_track=='True' and than plots the entire track of the segment.
@@ -515,39 +534,41 @@ def spectrogram(data, segment_id=None, plot_track=False, track_id=None, snr_plot
       if None then saving is not performed
     flip -- {bool} -- flip the spectrogram to match Matlab spectrogram (Default = True)
     return_spec -- {bool} -- if True, returns spectrogram data and skips plotting and saving
+    give_label -- {bool} -- if True, adds label ("human, animal") as plot title
   
   Returns:
     Spectrogram data if return_spec is True
-  """
-  if (segment_id == None) and (track_id == None):
-    raise ValueError("You must pass segment id or track id")
-  elif (segment_id != None) and (track_id != None):
-    raise ValueError("You must pass segment id or track id, you can't pass both.",
+    """
+    label = get_label(data, segment_id=segment_id, track_id=track_id)
+    if (segment_id == None) and (track_id == None):
+        raise ValueError("You must pass segment id or track id")
+    elif (segment_id != None) and (track_id != None):
+        raise ValueError("You must pass segment id or track id, you can't pass both.",
     "\nIf you want to plot the entire track of a segment by passig only the segment_id than set 'plot_track'=True")
-  elif (segment_id != None) and (track_id == None):
-    segment_index = np.where(data['segment_id'] == segment_id)
-    if not plot_track:
-      iq_matrix = data['iq_sweep_burst'][segment_index]
-      iq_matrix = iq_matrix.reshape(iq_matrix.shape[1], -1)
-      doppler_vector = data['doppler_burst'][segment_index]
-      doppler_vector = doppler_vector.reshape(doppler_vector.shape[1])
-      plot_spectrogram(iq_burst=iq_matrix, doppler_burst=doppler_vector, color_map_name=color_map_name,
-                      color_map_path=color_map_path, save_path=save_path, flip=flip, return_spec=return_spec)
+    elif (segment_id != None) and (track_id == None):
+        segment_index = np.where(data['segment_id'] == segment_id)
+        if not plot_track:
+            iq_matrix = data['iq_sweep_burst'][segment_index]
+            iq_matrix = iq_matrix.reshape(iq_matrix.shape[1], -1)
+            doppler_vector = data['doppler_burst'][segment_index]
+            doppler_vector = doppler_vector.reshape(doppler_vector.shape[1])
+            plot_spectrogram(iq_burst=iq_matrix, doppler_burst=doppler_vector, color_map_name=color_map_name,
+                             color_map_path=color_map_path, save_path=save_path, flip=flip, return_spec=return_spec, label=label)
+        else:
+            '''plot_track=True than plots all track by segment_id'''
+            track_id = data['track_id'][segment_index]
+            spectrogram_cmap(data, segment_id=None, plot_track=False, track_id=track_id,
+                             snr_plot=snr_plot, color_map_name=color_map_name, 
+                             color_map_path=color_map_path, save_path=save_path, flip=flip, 
+                             return_spec=return_spec)
     else:
-        '''plot_track=True than plots all track by segment_id'''
-        track_id = data['track_id'][segment_index]
-        spectrogram(data, segment_id=None, plot_track=False, track_id=track_id,
-                    snr_plot=snr_plot, color_map_name=color_map_name, 
-                    color_map_path=color_map_path, save_path=save_path, flip=flip, 
-                    return_spec=return_spec)
-  else:
-    ''' track_id is passed, plotting the entire track '''
+        ''' track_id is passed, plotting the entire track '''
     
-    iq_matrix, doppler_vector = concatenate_track(data, track_id, snr_plot) 
+        iq_matrix, doppler_vector = concatenate_track(data, track_id, snr_plot) 
 
-    plot_spectrogram(iq_burst=iq_matrix, doppler_burst=doppler_vector, 
-                     color_map_name=color_map_name, color_map_path=color_map_path, 
-                     save_path=save_path, flip=flip, return_spec=return_spec)
+        plot_spectrogram(iq_burst=iq_matrix, doppler_burst=doppler_vector, 
+                         color_map_name=color_map_name, color_map_path=color_map_path, 
+                         save_path=save_path, flip=flip, return_spec=return_spec, label=label)
     
 
 def fft(iq, axis=0):
