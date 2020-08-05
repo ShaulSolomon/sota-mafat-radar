@@ -10,6 +10,17 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 import itertools
 from matplotlib.colors import LinearSegmentedColormap
+import configparser
+
+
+### fetch the credentials ###
+creds_path = "../code/utils/credentials.ini"
+config_parser = configparser.ConfigParser()
+config_parser.read(creds_path)
+
+PATH_ROOT = config_parser['DEFAULT']["PATH_ROOT"]
+PATH_DATA = config_parser['DEFAULT']["PATH_DATA"]
+#####
 
     
 spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
@@ -374,7 +385,7 @@ def calculate_spectrogram(iq_burst, axis=0, flip=True):
 
 
 def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
-                    color_map_path=None, save_path=None, flip=True, return_spec=False):
+                    color_map_path=None, save_path=None, flip=True, return_spec=False, figsize=None):
   """
   Plots spectrogram of 'iq_sweep_burst'.
 
@@ -390,6 +401,7 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
       if None then saving is not performed
     flip -- {bool} -- flip the spectrogram to match Matlab spectrogram (Default = True)
     return_spec -- {bool} -- if True, returns spectrogram data and skips plotting and saving
+    figsize -- {tuple} -- plot the spectrogram with the given figsize
 
   Returns:
     Spectrogram data if return_spec is True
@@ -409,6 +421,10 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
   if return_spec:
       return iq
 
+  if figsize is not None:
+    plt.rcParams["figure.figsize"] = figsize
+
+
   if doppler_burst is not None:
       pixel_shift = 0.5
       if flip:
@@ -416,6 +432,7 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
                     pixel_shift + (len(iq) - doppler_burst), '.w')
       else:
           plt.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
+
 
   plt.imshow(iq, cmap=color_map)
   plt.show()
