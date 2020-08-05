@@ -390,6 +390,7 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
       if None then saving is not performed
     flip -- {bool} -- flip the spectrogram to match Matlab spectrogram (Default = True)
     return_spec -- {bool} -- if True, returns spectrogram data and skips plotting and saving
+    label -- {str} -- String to pass as plot title (Default = None)
 
   Returns:
     Spectrogram data if return_spec is True
@@ -418,7 +419,7 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
             plt.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
 
     plt.imshow(iq, cmap=color_map)
-    plt.title(label)
+    if isinstance(label, str): plt.title(label)
     plt.show()
     if save_path is not None:
         plt.imsave(save_path, iq, cmap=color_map)
@@ -489,7 +490,16 @@ def concatenate_track(data, track_id, snr_plot='both'):
 
 
 def get_label(data, segment_id=None, track_id=None):
-    labels = data.get('target_type')
+    """
+    Arguments:
+    data -- {dictionary} -- python dictionary of python numpy arrays
+    segment_id -- {int} -- segment id of a track
+    track_id -- {int} -- the track_id number of the wanted segment
+      
+    Returns:
+    String with label for track
+    """
+    labels = data.get('target_type', None)
     if labels is None:
         print('Dataset does not have labels')
         return labels
@@ -503,12 +513,16 @@ def get_label(data, segment_id=None, track_id=None):
     else:
         track_indices = np.where(data['track_id'] == track_id)
         label = np.unique(labels[track_indices])
-    assert len(label) == 1, f"More than one label in segment: {label}"
-    return label.item()
+    if len(label) == 1: 
+        return label.item()
+    else:
+        print(f"{len(label)} labels in segment: Labels: {label}")
+        return None
+    
     
 def spectrogram(data, segment_id=None, plot_track=False, track_id=None, snr_plot='both',
                 color_map_name='parula', color_map_path=None, save_path=None, flip=True,
-                return_spec=False):
+                return_spec=False, give_label=True):
     """
   Plots spectrogram of a track or of a single segment I/Q matrix ('iq_sweep_burst').
   If segment_id is passed than plots spectrogram for the specific segment,
@@ -534,12 +548,14 @@ def spectrogram(data, segment_id=None, plot_track=False, track_id=None, snr_plot
       if None then saving is not performed
     flip -- {bool} -- flip the spectrogram to match Matlab spectrogram (Default = True)
     return_spec -- {bool} -- if True, returns spectrogram data and skips plotting and saving
-    give_label -- {bool} -- if True, adds label ("human, animal") as plot title
+    give_label -- {bool} -- if True, adds label ("human, animal") as plot title (Default = True)
   
   Returns:
     Spectrogram data if return_spec is True
     """
-    label = get_label(data, segment_id=segment_id, track_id=track_id)
+    label = None
+    if give_label:
+        label = get_label(data, segment_id=segment_id, track_id=track_id)
     if (segment_id == None) and (track_id == None):
         raise ValueError("You must pass segment id or track id")
     elif (segment_id != None) and (track_id != None):
