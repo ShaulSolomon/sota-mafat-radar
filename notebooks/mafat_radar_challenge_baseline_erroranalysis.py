@@ -30,13 +30,20 @@ Submissions are evaluated on the area under the Receiver Operating Characteristi
 """
 
 !pip install tensorflow-determinism
+!pip install --upgrade wandb
 
 from google.colab import drive
 mount_path = '/content/gdrive/'
 drive.mount(mount_path)
 
-root_path = input()
-root_path
+import os
+if os.path.isfile('path'):
+  root_path = open('path', 'r').read()
+else:
+  root_path = input()
+  path_file = open("path", "w")
+  path_file.write(root_path)
+  path_file.close()
 
 cd {root_path}
 
@@ -50,20 +57,29 @@ cd {root_path}
 Following commands should be executed only once for setup in order to connect to private github repo:
 
 ```
+# to create a private+public keys run the command:
 !ssh-keygen -t rsa -b 4096 -C “hershkoy@github.com”
 
-#this is the private key. copy paste and *SAVE IT* on your local disk for any future use 
+#this is the private key. copy paste and *SAVE IT* on your local disk for any future use. give it a meaningful name so that you will remember what it is for :)
 !cat /root/.ssh/id_rsa
 
 #this is your public key. copy-paste and upload to github (settings => SSH and GPG keys => New key)
 !cat /root/.ssh/id_rsa.pub
 
-!ssh-keyscan github.com >> /root/.ssh/known_hosts
-!chmod 644 /root/.ssh/known_hosts
-!chmod 600 /root/.ssh/id_rsa
-
 ```
 """
+
+# Commented out IPython magic to ensure Python compatibility.
+# %%bash
+# if [ -f "/root/.ssh/id_rsa" ]; then
+#     echo "github key exists."
+# else
+#     mkdir /root/.ssh/
+#     cp key.pem /root/.ssh/id_rsa
+#     ssh-keyscan github.com >> /root/.ssh/known_hosts
+#     chmod 644 /root/.ssh/known_hosts
+#     chmod 600 /root/.ssh/id_rsa
+# fi
 
 !rm -rf sota-mafat-radar
 !ssh -T git@github.com
@@ -89,7 +105,6 @@ from matplotlib.colors import LinearSegmentedColormap
 from termcolor import colored
 
 sys.path.insert(0,os.path.join(os.getcwd(),"sota-mafat-radar/code/utils"))
-
 import experiment_utils as utils
 
 
@@ -111,6 +126,13 @@ sess = tf.compat.v1.Session(graph=tf.compat.v1.get_default_graph(), config=sessi
 tf.compat.v1.keras.backend.set_session(sess)
 
 tf.__version__
+
+WANDB_enable = False
+
+if WANDB_enable:
+  !wandb login {utils.config_parser['DEFAULT']["WANDB_LOGIN"]}
+import wandb
+from wandb.keras import WandbCallback
 
 # Set and test path to competition data files
 competition_path = os.path.join(os.getcwd(),"data") 
@@ -247,6 +269,7 @@ train_x = train_x.reshape(list(train_x.shape)+[1])
 val_x = val_x.reshape(list(val_x.shape)+[1])
 
 train_dff
+#train_dff.to_csv("train_dff.csv", sep='\t')
 
 # Public test set - loading and preprocessing
 test_path = 'MAFAT RADAR Challenge - Public Test Set V1'
@@ -277,8 +300,15 @@ model.compile(loss=loss_function, optimizer=optimizer, metrics=[AUC(), 'accuracy
 model.summary()
 
 # Model fit
+
+wandb.init(project="mafat",name="first")
+
+callbacks = []
+if WANDB_enable:
+  callbacks.append(WandbCallback())
+
 history = model.fit(train_x, train_y, batch_size = batch_size, epochs = no_epochs, 
-                    validation_data = (val_x, val_y))
+                    validation_data = (val_x, val_y), callbacks=callbacks)
 
 """#### **Results**
 Submissions are evaluated on the area under the Receiver Operating Characteristic Curve ([ROC AUC](https://en.wikipedia.org/wiki/Receiver_operating_characteristic))   
@@ -328,47 +358,102 @@ pred_val = (model.predict(val_x).flatten()>0.5)*1
 df_idx = list(train_dff[train_dff.is_validation].index)
 results_val = pd.DataFrame({'true':val_y, 'pred':pred_val,'df_idx':df_idx})
 
-# true=0, pred=0
+"""‘target_type’ –  ‘human’ (1) or ‘animal’ (0) - the identified object in the segment."""
 
-sample = results_val[(results_val.true==0) & (results_val.pred==0)]
-ind = sample.iloc[0].df_idx
-x_tmp = train_df['iq_sweep_burst'][ind]
-utils.plot_spectrogram(
-    train_df['iq_sweep_burst'][ind],
-    train_df['doppler_burst'][ind], 
-    color_map_path='/content/cmap.npy'
-    )
+# true=0, pred=0 => GOOD: animals identified correctly as animals
 
-# true=1, pred=0
+print("GOOD: animals identified correctly as animals")
 
-sample = results_val[(results_val.true==1) & (results_val.pred==0)]
-ind = sample.iloc[0].df_idx
-x_tmp = train_df['iq_sweep_burst'][ind]
-utils.plot_spectrogram(
-    train_df['iq_sweep_burst'][ind],
-    train_df['doppler_burst'][ind], 
-    color_map_path='/content/cmap.npy'
-    )
+num_results =10
 
-# true=0, pred=1
+fig, axarr = plt.subplots(1, num_results,figsize=(2*num_results, 6*num_results))
 
-sample = results_val[(results_val.true==0) & (results_val.pred==1)]
-ind = sample.iloc[0].df_idx
-x_tmp = train_df['iq_sweep_burst'][ind]
-utils.plot_spectrogram(
-    train_df['iq_sweep_burst'][ind],
-    train_df['doppler_burst'][ind], 
-    color_map_path='/content/cmap.npy'
-    )
+for i in range(num_results):
+  ax1= axarr[i]
+  sample = results_val[(results_val.true==0) & (results_val.pred==0)]
+  ind = sample.iloc[i].df_idx
+  x_tmp = train_df['iq_sweep_burst'][ind]
+  utils.plot_spectrogram(
+      train_df['iq_sweep_burst'][ind],
+      train_df['doppler_burst'][ind], 
+      color_map_path='/content/cmap.npy',
+      ax=ax1
+      )
 
-# true=1, pred=1
+fig.tight_layout()
 
-sample = results_val[(results_val.true==1) & (results_val.pred==1)]
-ind = sample.iloc[0].df_idx
-x_tmp = train_df['iq_sweep_burst'][ind]
-utils.plot_spectrogram(
-    train_df['iq_sweep_burst'][ind],
-    train_df['doppler_burst'][ind], 
-    color_map_path='/content/cmap.npy'
-    )
+# true=1, pred=0 => WRONG: humans mis-identified as animals
+
+print("WRONG: humans mis-identified as animals")
+
+fig, axarr = plt.subplots(1, num_results,figsize=(2*num_results, 6*num_results))
+#fig.suptitle("WRONG: humans mis-identified as animals", fontsize=16)
+
+for i in range(num_results):
+  ax1= axarr[i]
+  sample = results_val[(results_val.true==1) & (results_val.pred==0)]
+  ind = sample.iloc[i].df_idx
+  x_tmp = train_df['iq_sweep_burst'][ind]
+  utils.plot_spectrogram(
+      train_df['iq_sweep_burst'][ind],
+      train_df['doppler_burst'][ind], 
+      color_map_path='/content/cmap.npy',
+      ax=ax1
+      )
+  
+fig.subplots_adjust(top=0.88)
+fig.tight_layout()
+plt.show()
+
+# true=0, pred=1 => WRONG: animals mis-identified as humans
+
+print("WRONG: animals mis-identified as humans")
+
+fig, axarr = plt.subplots(1, num_results,figsize=(2*num_results, 6*num_results))
+#fig.suptitle("WRONG: animals mis-identified as humans", fontsize=16)
+
+for i in range(num_results):
+  ax1= axarr[i]
+  sample = results_val[(results_val.true==0) & (results_val.pred==1)]
+  ind = sample.iloc[i].df_idx
+  x_tmp = train_df['iq_sweep_burst'][ind]
+  utils.plot_spectrogram(
+      train_df['iq_sweep_burst'][ind],
+      train_df['doppler_burst'][ind], 
+      color_map_path='/content/cmap.npy',
+      ax=ax1
+      )
+  
+fig.subplots_adjust(top=0.88)
+fig.tight_layout()
+plt.show()
+
+# true=1, pred=1  => GOOD: humans identified correctly as humans.
+
+print("GOOD: humans identified correctly as humans")
+
+rows_results = 4
+num_results=40
+
+fig, axarr = plt.subplots(rows_results, 
+                          int(num_results/rows_results),
+                          figsize=( 20, 5*rows_results )
+)
+#fig.suptitle("GOOD: humans identified correctly as humans", fontsize=16)
+
+for i in range(num_results):
+  ax1= axarr[int(i%rows_results),int(i/rows_results)]
+  sample = results_val[(results_val.true==1) & (results_val.pred==1)]
+  ind = sample.iloc[i].df_idx
+  x_tmp = train_df['iq_sweep_burst'][ind]
+  utils.plot_spectrogram(
+      train_df['iq_sweep_burst'][ind],
+      train_df['doppler_burst'][ind], 
+      color_map_path='/content/cmap.npy',
+      ax=ax1
+      )
+  
+fig.subplots_adjust(top=0.88)
+fig.tight_layout()
+plt.show()
 

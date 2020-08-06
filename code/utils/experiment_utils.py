@@ -14,7 +14,7 @@ import configparser
 
 
 ### fetch the credentials ###
-creds_path = "../code/utils/credentials.ini"
+creds_path = "credentials.ini"
 config_parser = configparser.ConfigParser()
 config_parser.read(creds_path)
 
@@ -385,7 +385,7 @@ def calculate_spectrogram(iq_burst, axis=0, flip=True):
 
 
 def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
-                    color_map_path=None, save_path=None, flip=True, return_spec=False, figsize=None):
+                    color_map_path=None, save_path=None, flip=True, return_spec=False, figsize=None, ax=None):
   """
   Plots spectrogram of 'iq_sweep_burst'.
 
@@ -401,8 +401,7 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
       if None then saving is not performed
     flip -- {bool} -- flip the spectrogram to match Matlab spectrogram (Default = True)
     return_spec -- {bool} -- if True, returns spectrogram data and skips plotting and saving
-    figsize -- {tuple} -- plot the spectrogram with the given figsize
-
+    ax -- {plt ax} -- plt ax object. can be used to show the result in subplots
   Returns:
     Spectrogram data if return_spec is True
   """
@@ -424,22 +423,27 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
   if figsize is not None:
     plt.rcParams["figure.figsize"] = figsize
 
+  plt_o = plt
+  if ax is not None: 
+       plt_o = ax
 
   if doppler_burst is not None:
       pixel_shift = 0.5
       if flip:
-          plt.plot(pixel_shift + np.arange(len(doppler_burst)),
+          plt_o.plot(pixel_shift + np.arange(len(doppler_burst)),
                     pixel_shift + (len(iq) - doppler_burst), '.w')
       else:
-          plt.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
+          plt_o.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
 
+  plt_o.imshow(iq, cmap=color_map)
 
-  plt.imshow(iq, cmap=color_map)
-  plt.show()
   if save_path is not None:
-      plt.imsave(save_path, iq, cmap=color_map)
+      plt_o.imsave(save_path, iq, cmap=color_map)
 
-  plt.clf()
+  if ax is None: 
+      plt_o.show()
+      plt_o.clf()
+
 
 
 def get_track_id(data, segment_id):
