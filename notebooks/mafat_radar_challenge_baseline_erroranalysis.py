@@ -29,6 +29,10 @@ Submissions are evaluated on the area under the Receiver Operating Characteristi
 ## **Setup**
 """
 
+# Commented out IPython magic to ensure Python compatibility.
+# %load_ext autoreload
+# %autoreload 2
+
 !pip install tensorflow-determinism
 !pip install --upgrade wandb
 
@@ -93,6 +97,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+from importlib import reload  #use 'reload' to reload module manually if it was changed
 
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Sequential, load_model
@@ -301,10 +306,10 @@ model.summary()
 
 # Model fit
 
-wandb.init(project="mafat",name="first")
 
 callbacks = []
 if WANDB_enable:
+  wandb.init(project="mafat",name="first")
   callbacks.append(WandbCallback())
 
 history = model.fit(train_x, train_y, batch_size = batch_size, epochs = no_epochs, 
@@ -376,7 +381,7 @@ for i in range(num_results):
   utils.plot_spectrogram(
       train_df['iq_sweep_burst'][ind],
       train_df['doppler_burst'][ind], 
-      color_map_path='/content/cmap.npy',
+      color_map_path='./data/cmap.npy',
       ax=ax1
       )
 
@@ -457,3 +462,46 @@ fig.subplots_adjust(top=0.88)
 fig.tight_layout()
 plt.show()
 
+"""## more error analysis
+
+checking the distribution of the errors
+"""
+
+train_dff['success'] = None
+for _, row in results_val.iterrows():
+    i = row.df_idx
+    train_dff.loc[i,'success']= (row.true==row.pred)
+
+mistakes = train_dff[(train_dff.is_validation==True) & (train_dff.success==False)]
+mistakes.head()
+
+mistakes.snr_type.value_counts()
+
+mistakes.target_type.value_counts()
+
+mistakes.track_id.value_counts()
+
+track_id_t = 11
+train_dff[train_dff.track_id==track_id_t]
+
+segment0_in_track = train_dff[train_dff.track_id==track_id_t].iloc[0].segment_id
+plt.figure(figsize=( 20,40))
+
+animal0_human1 = train_dff[train_dff.track_id==track_id_t].iloc[0].target_type
+class_str = "Human" if animal0_human1 else "Animal"
+
+utils.spectrogram(train_df, segment_id=segment0_in_track, plot_track=True, snr_plot='both',
+            color_map_path='./data/cmap.npy',title=f"track #{track_id_t}. All SNRs. Class={class_str}",
+            val_overlay=list(train_dff[train_dff.track_id==track_id_t].success) )
+
+train_df['doppler_burst'][1656]
+
+!pip install ipdb -q
+
+import ipdb
+
+reload(utils)
+
+train_dff[(train_dff.is_validation==True)]
+
+test_df
