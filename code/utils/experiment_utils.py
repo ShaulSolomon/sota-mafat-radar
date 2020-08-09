@@ -14,7 +14,7 @@ import configparser
 
 
 ### fetch the credentials ###
-creds_path = "../code/utils/credentials.ini"
+creds_path = "credentials.ini"
 config_parser = configparser.ConfigParser()
 config_parser.read(creds_path)
 
@@ -22,6 +22,7 @@ PATH_ROOT = config_parser['DEFAULT']["PATH_ROOT"]
 PATH_DATA = config_parser['DEFAULT']["PATH_DATA"]
 #####
 
+#import ipdb -> add ipdb.set_trace() where you need the breakpoint
     
 spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
        [2.444e-01, 1.534e-01, 6.728e-01],
@@ -385,8 +386,8 @@ def calculate_spectrogram(iq_burst, axis=0, flip=True):
 
 
 def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
-                    color_map_path=None, save_path=None, flip=True, return_spec=False, figsize=None, label=None):
-
+                    color_map_path=None, save_path=None, flip=True, return_spec=False, figsize=None, label=None, ax=None):
+  """
   Plots spectrogram of 'iq_sweep_burst'.
 
   Arguments:
@@ -403,51 +404,50 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
     return_spec -- {bool} -- if True, returns spectrogram data and skips plotting and saving
     figsize -- {tuple} -- plot the spectrogram with the given figsize (Default = None)
     label -- {str} -- String to pass as plot title (Default = None)
-
+    ax -- {plt ax} -- plt ax object. can be used to show the result in subplots
   Returns:
     Spectrogram data if return_spec is True
     """
-    if color_map_path is not None:
+  if color_map_path is not None:
         cm_data = np.load(color_map_path)
         color_map = LinearSegmentedColormap.from_list(color_map_name, cm_data)
-    elif color_map_name == 'parula':
+  elif color_map_name == 'parula':
         print("Error: when 'parula' color map is used, color_map_path should be provided.")
         print("Switching color map to 'viridis'.")
         color_map = LinearSegmentedColormap.from_list(color_map_name, spectrogram_cmap)
-    else:
+  else:
         color_map = plt.get_cmap(color_map_name)
 
-    iq = calculate_spectrogram(iq_burst, flip=flip)
+  iq = calculate_spectrogram(iq_burst, flip=flip)
   
   if return_spec:
       return iq
 
+  plt_o = plt
+  if ax is not None: 
+        plt_o = ax
+
   if figsize is not None:
-    plt.rcParams["figure.figsize"] = figsize
+    plt_o.rcParams["figure.figsize"] = figsize
 
 
   if doppler_burst is not None:
       pixel_shift = 0.5
       if flip:
-          plt.plot(pixel_shift + np.arange(len(doppler_burst)),
+          plt_o.plot(pixel_shift + np.arange(len(doppler_burst)),
                     pixel_shift + (len(iq) - doppler_burst), '.w')
       else:
-          plt.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
+          plt_o.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
 
+  plt_o.imshow(iq, cmap=color_map)
 
-  plt.imshow(iq, cmap=color_map)
-  plt.show()
   if save_path is not None:
-      plt.imsave(save_path, iq, cmap=color_map)
+      plt_o.imsave(save_path, iq, cmap=color_map)
 
-
-    plt.imshow(iq, cmap=color_map)
-    if isinstance(label, str): plt.title(label)
-    plt.show()
-    if save_path is not None:
-        plt.imsave(save_path, iq, cmap=color_map)
-
-    plt.clf()
+  if ax is None: 
+        if isinstance(label, str): plt_o.title(label)
+        plt_o.show()
+        plt_o.clf()
 
 
 def get_track_id(data, segment_id):
@@ -596,7 +596,7 @@ def spectrogram(data, segment_id=None, plot_track=False, track_id=None, snr_plot
         else:
             '''plot_track=True than plots all track by segment_id'''
             track_id = data['track_id'][segment_index]
-            spectrogram_cmap(data, segment_id=None, plot_track=False, track_id=track_id,
+            spectrogram(data, segment_id=None, plot_track=False, track_id=track_id,
                              snr_plot=snr_plot, color_map_name=color_map_name, 
                              color_map_path=color_map_path, save_path=save_path, flip=flip, 
                              return_spec=return_spec)
