@@ -11,10 +11,11 @@ from sklearn.metrics import confusion_matrix
 import itertools
 from matplotlib.colors import LinearSegmentedColormap
 import configparser
+import matplotlib.patches as patches
 
 
 ### fetch the credentials ###
-creds_path = "../code/utils/credentials.ini"
+creds_path = "credentials.ini"
 config_parser = configparser.ConfigParser()
 config_parser.read(creds_path)
 
@@ -22,6 +23,7 @@ PATH_ROOT = config_parser['DEFAULT']["PATH_ROOT"]
 PATH_DATA = config_parser['DEFAULT']["PATH_DATA"]
 #####
 
+#import ipdb -> add ipdb.set_trace() where you need the breakpoint
     
 spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
        [2.444e-01, 1.534e-01, 6.728e-01],
@@ -385,8 +387,9 @@ def calculate_spectrogram(iq_burst, axis=0, flip=True):
 
 
 def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
-                    color_map_path=None, save_path=None, flip=True, return_spec=False, figsize=None, label=None):
-
+                    color_map_path=None, save_path=None, flip=True, return_spec=False, 
+                    figsize=None, label=None, ax=None, title=None,val_overlay=None):
+  """
   Plots spectrogram of 'iq_sweep_burst'.
 
   Arguments:
@@ -403,51 +406,68 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
     return_spec -- {bool} -- if True, returns spectrogram data and skips plotting and saving
     figsize -- {tuple} -- plot the spectrogram with the given figsize (Default = None)
     label -- {str} -- String to pass as plot title (Default = None)
-
+    ax -- {plt ax} -- plt ax object. can be used to show the result in subplots
+    title -- title for the plot
+    val_overlay -- (list) draw a rectangle around validation segments, red for fail, green for success
   Returns:
     Spectrogram data if return_spec is True
     """
-    if color_map_path is not None:
+  if color_map_path is not None:
         cm_data = np.load(color_map_path)
         color_map = LinearSegmentedColormap.from_list(color_map_name, cm_data)
-    elif color_map_name == 'parula':
+  elif color_map_name == 'parula':
         print("Error: when 'parula' color map is used, color_map_path should be provided.")
         print("Switching color map to 'viridis'.")
         color_map = LinearSegmentedColormap.from_list(color_map_name, spectrogram_cmap)
-    else:
+  else:
         color_map = plt.get_cmap(color_map_name)
 
-    iq = calculate_spectrogram(iq_burst, flip=flip)
+  iq = calculate_spectrogram(iq_burst, flip=flip)
   
   if return_spec:
       return iq
 
+  plt_o = plt
+  if ax is not None: 
+        plt_o = ax
+
   if figsize is not None:
-    plt.rcParams["figure.figsize"] = figsize
+    plt_o.rcParams["figure.figsize"] = figsize
 
 
   if doppler_burst is not None:
       pixel_shift = 0.5
       if flip:
-          plt.plot(pixel_shift + np.arange(len(doppler_burst)),
+          plt_o.plot(pixel_shift + np.arange(len(doppler_burst)),
                     pixel_shift + (len(iq) - doppler_burst), '.w')
       else:
-          plt.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
+          plt_o.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
 
+  ax1 = plt.gca()
+  if val_overlay is not None:
+    for i,seg in enumerate(val_overlay):
+      if seg is None: 
+        continue
+      overlay_color = 'g' if seg==True else 'r'
+      x_pos = i*32
+      rect = patches.Rectangle((x_pos,0),31,127,linewidth=2,edgecolor=overlay_color,facecolor='none')
+      ax1.add_patch(rect)
 
-  plt.imshow(iq, cmap=color_map)
-  plt.show()
+  plt_o.imshow(iq, cmap=color_map)
+
   if save_path is not None:
-      plt.imsave(save_path, iq, cmap=color_map)
+      plt_o.imsave(save_path, iq, cmap=color_map)
 
+  if title is not None:
+    if ax is None:
+      plt_o.title(title)
+    else:
+      plt_o.set_title(title)
 
-    plt.imshow(iq, cmap=color_map)
-    if isinstance(label, str): plt.title(label)
-    plt.show()
-    if save_path is not None:
-        plt.imsave(save_path, iq, cmap=color_map)
-
-    plt.clf()
+  if ax is None: 
+        if isinstance(label, str): plt_o.title(label)
+        plt_o.show()
+        plt_o.clf()
 
 
 def get_track_id(data, segment_id):
@@ -545,7 +565,7 @@ def get_label(data, segment_id=None, track_id=None):
     
 def spectrogram(data, segment_id=None, plot_track=False, track_id=None, snr_plot='both',
                 color_map_name='parula', color_map_path=None, save_path=None, flip=True,
-                return_spec=False, give_label=True):
+                return_spec=False, give_label=True, title=None,val_overlay=None):
     """
   Plots spectrogram of a track or of a single segment I/Q matrix ('iq_sweep_burst').
   If segment_id is passed than plots spectrogram for the specific segment,
@@ -572,7 +592,8 @@ def spectrogram(data, segment_id=None, plot_track=False, track_id=None, snr_plot
     flip -- {bool} -- flip the spectrogram to match Matlab spectrogram (Default = True)
     return_spec -- {bool} -- if True, returns spectrogram data and skips plotting and saving
     give_label -- {bool} -- if True, adds label ("human, animal") as plot title (Default = True)
-  
+    title -- title for the plot
+    val_overlay -- (list) draw a rectangle around validation segments, red for fail, green for success  
   Returns:
     Spectrogram data if return_spec is True
     """
@@ -592,14 +613,15 @@ def spectrogram(data, segment_id=None, plot_track=False, track_id=None, snr_plot
             doppler_vector = data['doppler_burst'][segment_index]
             doppler_vector = doppler_vector.reshape(doppler_vector.shape[1])
             plot_spectrogram(iq_burst=iq_matrix, doppler_burst=doppler_vector, color_map_name=color_map_name,
-                             color_map_path=color_map_path, save_path=save_path, flip=flip, return_spec=return_spec, label=label)
+                             color_map_path=color_map_path, save_path=save_path, flip=flip, return_spec=return_spec,
+                             label=label, title=title, val_overlay=val_overlay)
         else:
             '''plot_track=True than plots all track by segment_id'''
             track_id = data['track_id'][segment_index]
-            spectrogram_cmap(data, segment_id=None, plot_track=False, track_id=track_id,
+            spectrogram(data, segment_id=None, plot_track=False, track_id=track_id,
                              snr_plot=snr_plot, color_map_name=color_map_name, 
                              color_map_path=color_map_path, save_path=save_path, flip=flip, 
-                             return_spec=return_spec)
+                             return_spec=return_spec,title=title, val_overlay=val_overlay)
     else:
         ''' track_id is passed, plotting the entire track '''
     
@@ -607,7 +629,8 @@ def spectrogram(data, segment_id=None, plot_track=False, track_id=None, snr_plot
 
         plot_spectrogram(iq_burst=iq_matrix, doppler_burst=doppler_vector, 
                          color_map_name=color_map_name, color_map_path=color_map_path, 
-                         save_path=save_path, flip=flip, return_spec=return_spec, label=label)
+                         save_path=save_path, flip=flip, return_spec=return_spec,
+                         label=label, title=title, val_overlay=val_overlay)
     
 
 def fft(iq, axis=0):
