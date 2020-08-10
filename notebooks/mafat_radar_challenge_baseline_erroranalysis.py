@@ -26,22 +26,66 @@ Submissions are evaluated on the area under the Receiver Operating Characteristi
 [Competition website](https://competitions.codalab.org/competitions/25389)   
 [MAFAT Challenge homepage](https://mafatchallenge.mod.gov.il/)
 
-## **Setup**
+# Helpers
+
+No need to run these helpers blocks. Leaving them here because they have proved to be quite useful during normal development flow. 
+
+For debug, add `ipdb.set_trace()` inside a cell that you want to debug.
+
+The reload, in case there was a change in the experiment utils file, rerun the cell which imports the module, and then run the reload command below.
+
+## Debugging
 """
+
+!pip install ipdb -q
+
+import ipdb
+
+"""## Reload a module"""
+
+reload(utils)
+
+"""# **Setup**"""
 
 # Commented out IPython magic to ensure Python compatibility.
 # %load_ext autoreload
 # %autoreload 2
 
-!pip install tensorflow-determinism
-!pip install --upgrade wandb
+"""on local, the notebook will open on the path it is stored on. 
+on colab, the pwd path is always '/content'
+"""
 
-from google.colab import drive
-mount_path = '/content/gdrive/'
-drive.mount(mount_path)
+import configparser
+import os.path
+from os import path
 
-import os
-if os.path.isfile('path'):
+WANDB_enable = False
+creds_path_ar = ["../credentials.ini","credentials.colab.ini"]
+root_path = ""
+data_path = ""
+
+for creds_path in creds_path_ar:
+  if path.exists(creds_path):
+      config_parser = configparser.ConfigParser()
+      config_parser.read(creds_path)
+      root_path = config_parser['MAIN']["PATH_ROOT"]
+      data_path = config_parser['MAIN']["PATH_DATA"]
+      WANDB_enable = config_parser['MAIN']["WANDB_ENABLE"] == 'TRUE'
+      ENV = config_parser['MAIN']["ENV"]
+      break
+
+if ENV=="COLAB":
+  !pip install tensorflow-determinism
+  !pip install --upgrade wandb
+
+if ENV=="COLAB":
+  from google.colab import drive
+  mount_path = '/content/gdrive/'
+  drive.mount(mount_path)
+
+if root_path is not '':
+  pass
+elif os.path.isfile('path'):
   root_path = open('path', 'r').read()
 else:
   root_path = input()
@@ -51,43 +95,8 @@ else:
 
 cd {root_path}
 
-"""## How to connect to github using ssh
-
-[https://medium.com/@ashkanpakzad/data-into-google-colab-5ddeb4f4e8](https://medium.com/@ashkanpakzad/data-into-google-colab-5ddeb4f4e8)
-
-
----
-
-Following commands should be executed only once for setup in order to connect to private github repo:
-
-```
-# to create a private+public keys run the command:
-!ssh-keygen -t rsa -b 4096 -C “hershkoy@github.com”
-
-#this is the private key. copy paste and *SAVE IT* on your local disk for any future use. give it a meaningful name so that you will remember what it is for :)
-!cat /root/.ssh/id_rsa
-
-#this is your public key. copy-paste and upload to github (settings => SSH and GPG keys => New key)
-!cat /root/.ssh/id_rsa.pub
-
-```
-"""
-
-# Commented out IPython magic to ensure Python compatibility.
-# %%bash
-# if [ -f "/root/.ssh/id_rsa" ]; then
-#     echo "github key exists."
-# else
-#     mkdir /root/.ssh/
-#     cp key.pem /root/.ssh/id_rsa
-#     ssh-keyscan github.com >> /root/.ssh/known_hosts
-#     chmod 644 /root/.ssh/known_hosts
-#     chmod 600 /root/.ssh/id_rsa
-# fi
-
-!rm -rf sota-mafat-radar
-!ssh -T git@github.com
-!git clone git@github.com:ShaulSolomon/sota-mafat-radar.git
+if ENV=="COLAB" and os.path.isfile('/content/credentials.colab.ini'):
+  !cp /content/credentials.colab.ini credentials.ini
 
 import os
 import sys
@@ -109,7 +118,7 @@ from sklearn.metrics import roc_auc_score, roc_curve, auc
 from matplotlib.colors import LinearSegmentedColormap
 from termcolor import colored
 
-sys.path.insert(0,os.path.join(os.getcwd(),"sota-mafat-radar/code/utils"))
+sys.path.insert(0,os.path.join(os.getcwd(),"code/utils"))
 import experiment_utils as utils
 
 
@@ -136,18 +145,21 @@ WANDB_enable = False
 
 if WANDB_enable:
   !wandb login {utils.config_parser['DEFAULT']["WANDB_LOGIN"]}
-import wandb
-from wandb.keras import WandbCallback
+  import wandb
+  from wandb.keras import WandbCallback
 
 # Set and test path to competition data files
-competition_path = os.path.join(os.getcwd(),"data") 
+
+if data_path is '':
+  data_path = os.path.join(os.getcwd(),"data") 
+
 try:
   file_path = 'MAFAT RADAR Challenge - Training Set V1.csv'
-  with open(f'{competition_path}/{file_path}') as f:
+  with open(f'{data_path}/{file_path}') as f:
     f.readlines()
   print(colored('Everything is setup correctly', color='green'))
 except:
-  print(colored('Please mount drive and set competition_path correctly',
+  print(colored('Please mount drive and set data_path correctly',
                 color='red'))
 
 """## **Data Preprocessing**
@@ -238,10 +250,12 @@ def create_model(input_shape, init):
 
 # Loading Auxiliary Experiment set - can take a few minutes
 experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
-experiment_auxiliary_df = utils.load_data(experiment_auxiliary, folder=competition_path )
+experiment_auxiliary_df = utils.load_data(experiment_auxiliary, folder=data_path )
+experiment_auxiliary_df['date_index'].shape
 
 # Taking sample from the Auxiliary Experiment set
 train_aux = utils.aux_split(experiment_auxiliary_df)
+train_aux['date_index'].shape
 
 # The function append_dict is for concatenating the training set 
 # with the Auxiliary data set segments
@@ -253,32 +267,36 @@ def append_dict(dict1, dict2):
 
 # Training set
 train_path = 'MAFAT RADAR Challenge - Training Set V1'
-training_df = utils.load_data(train_path, folder=competition_path )
+training_df = utils.load_data(train_path, folder=data_path )
+print(f"real dataset({training_df['date_index'].shape})",end='')
 
 # Adding segments from the experiment auxiliary set to the training set
 train_df = append_dict(training_df, train_aux)
+print(f" + aux dataset({train_aux['date_index'].shape}) = full train({train_df['date_index'].shape})")
 
 # Preprocessing and split the data to training and validation
 train_df = utils.data_preprocess(train_df.copy())
-train_x, train_y, val_x, val_y, val_idx = utils.split_train_val(train_df)
+train_x, train_y, val_x, val_y, is_validation_ar = utils.split_train_val(train_df)
 
 train_df_t = train_df.copy()
 del train_df_t['doppler_burst']
 del train_df_t['iq_sweep_burst']
 train_dff = pd.DataFrame(train_df_t)
-train_dff['is_validation']=val_idx
+train_dff['is_validation']=is_validation_ar
 
 val_y =  val_y.astype(int)
 train_y =train_y.astype(int)
 train_x = train_x.reshape(list(train_x.shape)+[1])
 val_x = val_x.reshape(list(val_x.shape)+[1])
 
-train_dff
+print(f"train only:{train_x.shape[0]}).  val only:{val_x.shape[0]}")
+
+train_dff.head(20)
 #train_dff.to_csv("train_dff.csv", sep='\t')
 
 # Public test set - loading and preprocessing
 test_path = 'MAFAT RADAR Challenge - Public Test Set V1'
-test_df = utils.load_data(test_path, folder=competition_path )
+test_df = utils.load_data(test_path, folder=data_path )
 test_df = utils.data_preprocess(test_df.copy())
 test_x = test_df['iq_sweep_burst']
 test_x = test_x.reshape(list(test_x.shape)+[1])
@@ -494,14 +512,100 @@ utils.spectrogram(train_df, segment_id=segment0_in_track, plot_track=True, snr_p
             color_map_path='./data/cmap.npy',title=f"track #{track_id_t}. All SNRs. Class={class_str}",
             val_overlay=list(train_dff[train_dff.track_id==track_id_t].success) )
 
-train_df['doppler_burst'][1656]
-
 !pip install ipdb -q
 
 import ipdb
 
 reload(utils)
 
-train_dff[(train_dff.is_validation==True)]
+"""---
 
-test_df
+# Creating Inner test set (+ check results)
+
+## Spliting the data
+"""
+
+# Training set
+train_path = 'MAFAT RADAR Challenge - Training Set V1'
+training_df = utils.load_data(train_path, folder=data_path )
+print(f"real dataset({training_df['date_index'].shape})",end='')
+
+# Adding segments from the experiment auxiliary set to the training set
+train_df = append_dict(training_df, train_aux)
+total_number_samples = train_df['date_index'].shape[0]
+print(f" + aux dataset({train_aux['date_index'].shape}) = full train({total_number_samples})")
+
+# Preprocessing and split the data to training and validation
+train_df = utils.data_preprocess(train_df.copy())
+train_x, train_y, valtest_x, valtest_y, valtest_ar = utils.split_train_val(train_df)
+
+valtest_ar_idx = list(np.where(valtest_ar==True)[0])
+val_idx,test_idx,mask = utils.splitArrayBy(valtest_ar_idx,[2,1])
+
+is_validation_ar = np.array([False]*total_number_samples)
+is_validation_ar[list(val_idx)]=True
+is_test_ar = np.array([False]*total_number_samples)
+is_test_ar[list(test_idx)]=True
+
+val_y = valtest_y[mask==0]
+val_x = valtest_x[mask==0,:]
+test_y = valtest_y[mask==1]
+test_x = valtest_x[mask==1,:]
+
+train_df_t = train_df.copy()
+del train_df_t['doppler_burst']
+del train_df_t['iq_sweep_burst']
+train_dff = pd.DataFrame(train_df_t)
+train_dff['is_validation']=is_validation_ar
+train_dff['is_test']=is_test_ar
+
+val_y =  val_y.astype(int)
+train_y =train_y.astype(int)
+test_y =test_y.astype(int)
+train_x = train_x.reshape(list(train_x.shape)+[1])
+val_x = val_x.reshape(list(val_x.shape)+[1])
+test_x = test_x.reshape(list(test_x.shape)+[1])
+
+print(f"train:{train_x.shape[0]}")
+print(f"val:{val_x.shape[0]}")
+print(f"test:{test_x.shape[0]}")
+
+train_dff
+
+# Model configuration:
+batch_size = 16
+img_width, img_height = 126, 32
+loss_function = BinaryCrossentropy()
+no_epochs = 10
+optimizer = Adam(learning_rate = 0.001)
+input_shape = (img_width, img_height, 1)
+
+init = tf.keras.initializers.GlorotNormal(seed = 0)
+
+# Creating and running the model
+model = create_model(input_shape, init)  
+model.compile(loss=loss_function, optimizer=optimizer, metrics=[AUC(), 'accuracy'])
+
+model.summary()
+
+# Model fit
+
+callbacks = []
+if WANDB_enable:
+  wandb.init(project="mafat",name="first")
+  callbacks.append(WandbCallback())
+
+history = model.fit(train_x, train_y, batch_size = batch_size, epochs = no_epochs, 
+                    validation_data = (val_x, val_y), callbacks=callbacks)
+
+"""## Results"""
+
+# Plot ROC curve and show ROC-AUC results of the training and validation sets. 
+pred = [model.predict(train_x), model.predict(val_x)]
+actual = [train_y, val_y]
+utils.stats(pred, actual)
+
+pred = [model.predict(train_x), model.predict(test_x)]
+actual = [train_y, test_y]
+utils.stats(pred, actual, mode="Test")
+
