@@ -345,6 +345,14 @@ def load_csv_metadata(file_path, folder=None):
   return output
 
 
+def vertical_flip(iq):
+    return iq.real + -1j*iq.imag
+
+
+def horizontal_flip(iq):
+    return iq.real * -1 + 1j*iq.imag
+
+
 def hann(iq, window=None):
   """
   Hann smoothing of 'iq_sweep_burst'.
