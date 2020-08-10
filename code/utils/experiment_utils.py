@@ -12,6 +12,8 @@ import itertools
 from matplotlib.colors import LinearSegmentedColormap
 import configparser
 import matplotlib.patches as patches
+import math
+from sklearn.metrics import roc_auc_score, roc_curve, auc
 
 
 ### fetch the credentials ###
@@ -19,8 +21,8 @@ creds_path = "credentials.ini"
 config_parser = configparser.ConfigParser()
 config_parser.read(creds_path)
 
-PATH_ROOT = config_parser['DEFAULT']["PATH_ROOT"]
-PATH_DATA = config_parser['DEFAULT']["PATH_DATA"]
+PATH_ROOT = config_parser['MAIN']["PATH_ROOT"]
+PATH_DATA = config_parser['MAIN']["PATH_DATA"]
 #####
 
 #import ipdb -> add ipdb.set_trace() where you need the breakpoint
@@ -343,6 +345,16 @@ def load_csv_metadata(file_path, folder=None):
   with open(path, 'rb') as data:
     output = pd.read_csv(data)
   return output
+
+
+def splitArrayBy(idx,pattern):
+  fullmask = ([0]*pattern[0]+[1]*pattern[1])*math.ceil(len(idx)/sum(pattern))
+  fullmask = np.array(fullmask[:len(idx)])
+  if isinstance(idx,(np.ndarray))==False:
+    idx = np.array(idx)
+  out0 = idx[np.where(fullmask==0)]
+  out1 = idx[np.where(fullmask==1)]
+  return out0,out1,fullmask
 
 
 def hann(iq, window=None):
@@ -707,7 +719,7 @@ def data_preprocess(data):
 
 # Function for splitting the data to training and validation
 # and function for selecting samples of segments from the Auxiliary dataset
-def split_train_val(data):
+def split_train_val(data,ratio=6):
   """
   Split the data to train and validation set.
   The validation set is built from training set segments of 
@@ -716,6 +728,7 @@ def split_train_val(data):
 
   Arguments:
     data -- {ndarray} -- the data set to split
+    ratio -- {int} -- ratio to make the split by
 
   Returns:
     iq_sweep_burst ndarray matrices
@@ -723,7 +736,7 @@ def split_train_val(data):
     for training and validation sets
   """
   idx = ((data['geolocation_id'] == 4) | (data['geolocation_id'] == 1))\
-   & (data['segment_id'] % 6 == 0)
+   & (data['segment_id'] % ratio == 0)
   training_x = data['iq_sweep_burst'][np.logical_not(idx)]
   training_y = data['target_type'][np.logical_not(idx)]
   validation_x = data['iq_sweep_burst'][idx]
@@ -751,13 +764,14 @@ def aux_split(data):
 
 # Function for calculating the final ROC-AUC score and plot the ROC curve,
 # used in the "Results" section
-def stats(pred, actual):
+def stats(pred, actual, mode="Validation"):
   """
   Computes the model ROC-AUC score and plots the ROC curve.
 
   Arguments:
     pred -- {ndarray} -- model's probability predictions
     actual -- the true lables
+    mode -- (string) Validation / Test (used in syntehtic test)
 
   Returns:
     ROC curve graph and ROC-AUC score
@@ -768,13 +782,13 @@ def stats(pred, actual):
   roc_auc = [auc(fpr1, tpr1), auc(fpr2, tpr2)]
   lw = 2
   plt.plot(fpr1, tpr1, lw=lw, label='Training set (ROC-AUC = %0.2f)' % roc_auc[0])
-  plt.plot(fpr2, tpr2, lw=lw, label='Validation set (ROC-AUC = %0.2f)' % roc_auc[1])
+  plt.plot(fpr2, tpr2, lw=lw, label=mode+' set (ROC-AUC = %0.2f)' % roc_auc[1])
   plt.plot([0, 1], [0, 1], color='black', lw=lw, linestyle='--', label = 'Random guess')
   plt.xlim([0.0, 1.0])
   plt.ylim([0.0, 1.05])
   plt.xlabel('False Positive Rate', fontsize=18)
   plt.ylabel('True Positive Rate', fontsize=18)
-  plt.title('Training set vs. Validation set ROC curves')
+  plt.title(f"Training set vs. {mode} set ROC curves")
   plt.legend(loc="lower right", prop = {'size': 20})
   plt.show()
   
