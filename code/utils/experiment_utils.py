@@ -707,7 +707,7 @@ def data_preprocess(data):
 
 # Function for splitting the data to training and validation
 # and function for selecting samples of segments from the Auxiliary dataset
-def split_train_val(data):
+def split_train_val(data,ratio=6):
   """
   Split the data to train and validation set.
   The validation set is built from training set segments of 
@@ -716,6 +716,7 @@ def split_train_val(data):
 
   Arguments:
     data -- {ndarray} -- the data set to split
+    ratio -- {int} -- ratio to make the split by
 
   Returns:
     iq_sweep_burst ndarray matrices
@@ -723,7 +724,7 @@ def split_train_val(data):
     for training and validation sets
   """
   idx = ((data['geolocation_id'] == 4) | (data['geolocation_id'] == 1))\
-   & (data['segment_id'] % 6 == 0)
+   & (data['segment_id'] % ratio == 0)
   training_x = data['iq_sweep_burst'][np.logical_not(idx)]
   training_y = data['target_type'][np.logical_not(idx)]
   validation_x = data['iq_sweep_burst'][idx]
