@@ -348,6 +348,20 @@ def load_csv_metadata(file_path, folder=None):
 
 
 def splitArrayBy(idx,pattern):
+  """
+  Split a list by a specific ratio. The ratio is given by the pattern. For a 2:1 ratio, use pattren=[2,1]
+  Explained by example:
+  For input [1,2,3,4,5,6,7] split by ratio 2:1 the output will be [1,2,4,5,7] and [3,6]
+
+  Arguments:
+    idx -- {list} -- Input array. Can be a 1D numpy array, or python list. 
+    pattern -- {list} -- The ratio to split by 
+
+  Returns:
+    out0 -- (list) -- The first part of the split array
+    out1 -- (list) -- The second part of the split array
+	fullmask -- (list) -- list showing which item in the input array is part of which split array
+  """
   fullmask = ([0]*pattern[0]+[1]*pattern[1])*math.ceil(len(idx)/sum(pattern))
   fullmask = np.array(fullmask[:len(idx)])
   if isinstance(idx,(np.ndarray))==False:
