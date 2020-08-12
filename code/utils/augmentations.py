@@ -21,6 +21,25 @@ def rotate_iq(iq, theta):
     return t_iq[:, 0, :] + 1j*t_iq[:, 1, :]
 
 
+def rotate_spectogram(data, segment_id, angle: int):
+    """
+        Rotates a segment spectogram.
+
+        Arguments:
+        data -- {dictionary} -- python dictionary of python numpy arrays
+        segment_id -- {int} -- the segment_id number
+        angle -- {int} degrees to rotate by
+
+        Returns:
+        Rotated spectogram
+        """
+    segment_index = np.where(data['segment_id'] == segment_id)
+    segment = data['iq_sweep_burst'][segment_index]
+    segment = segment.reshape(segment.shape[1], -1)
+    spectogram = utils.calculate_spectrogram(segment)
+    return rotate(spectogram, angle=angle)
+
+
 def rotate_track(data, track_id, angle: int):
     """
     Concatenates segments for a track and rotates the combined spectograms.
