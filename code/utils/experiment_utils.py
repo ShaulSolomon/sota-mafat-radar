@@ -12,6 +12,7 @@ import itertools
 from matplotlib.colors import LinearSegmentedColormap
 import configparser
 import matplotlib.patches as patches
+from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
 
 
 ### fetch the credentials ###
@@ -19,8 +20,8 @@ creds_path = "credentials.ini"
 config_parser = configparser.ConfigParser()
 config_parser.read(creds_path)
 
-PATH_ROOT = config_parser['DEFAULT']["PATH_ROOT"]
-PATH_DATA = config_parser['DEFAULT']["PATH_DATA"]
+PATH_ROOT = config_parser['MAIN']["PATH_ROOT"]
+PATH_DATA = config_parser['MAIN']["PATH_DATA"]
 #####
 
 #import ipdb -> add ipdb.set_trace() where you need the breakpoint
