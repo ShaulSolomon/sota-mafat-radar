@@ -17,7 +17,7 @@ from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
 
 
 ### fetch the credentials ###
-creds_path = "credentials.ini"
+creds_path = "../credentials.ini"
 config_parser = configparser.ConfigParser()
 config_parser.read(creds_path)
 
@@ -284,7 +284,7 @@ spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
        [9.749e-01, 9.782e-01, 8.720e-02],
        [9.769e-01, 9.839e-01, 8.050e-02]])
 
-np.save('./data/cmap.npy', spectrogram_cmap)
+# np.save('./data/cmap.npy', spectrogram_cmap)
 
 
 def load_data(file_path, folder=None):
