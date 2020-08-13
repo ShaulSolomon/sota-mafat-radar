@@ -136,3 +136,4 @@ dmypy.json
 .idea/
 credentials.ini
 ipynb.out
+wandb/
