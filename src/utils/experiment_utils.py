@@ -12,12 +12,8 @@ import itertools
 from matplotlib.colors import LinearSegmentedColormap
 import configparser
 import matplotlib.patches as patches
-<<<<<<< HEAD:src/utils/experiment_utils.py
 import math
-from sklearn.metrics import roc_auc_score, roc_curve, auc
-=======
 from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
->>>>>>> Working base_base_model:code/utils/experiment_utils.py
 
 
 ### fetch the credentials ###
