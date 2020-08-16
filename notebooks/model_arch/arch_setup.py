@@ -54,10 +54,11 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, tra
         for step,batch in enumerate(tr_loader):
 
             data, labels = batch
+
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
             outputs = model(data)
-
+        
             loss = criterion(outputs,labels)
             loss.backward()
             
