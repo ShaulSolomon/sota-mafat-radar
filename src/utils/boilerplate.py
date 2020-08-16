@@ -1,4 +1,4 @@
-import experiment_utils as utils
+from src.utils import experiment_utils as utils
 from termcolor import colored
 import numpy as np
 
