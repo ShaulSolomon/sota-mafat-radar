@@ -10,13 +10,13 @@ class DS(Dataset):
         super().__init__()
         self.df=df
         self.labels=labels
- 
+
     def __len__(self):
         return self.df.shape[0]
-    
+
     def __getitem__(self, idx):
         data = self.df[idx]
-        label = self.labels[idx]        
+        label = self.labels[idx]
         return data,label
 
 def pretty_log(log):
@@ -29,13 +29,8 @@ def thresh(output, thresh_hold = 0.5):
 
 def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, train_y,val_y):
 
-    using_cuda = False
-
-    if using_cuda:    
-        if torch.has_cuda:
-            device = torch.device('cuda:0')
-        else:
-            device = torch.device('cpu:0')
+    if torch.has_cuda:
+        device = torch.device('cuda:0')
     else:
         device = torch.device('cpu:0')
 
@@ -58,14 +53,14 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, tra
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
             outputs = model(data)
-        
+
             loss = criterion(outputs,labels)
             loss.backward()
-            
+
             tr_loss+=loss.item()
             tr_size+=data.shape[0]
 
-            tr_y_hat = np.append(tr_y_hat,thresh(outputs.detach().numpy()))
+            tr_y_hat = np.append(tr_y_hat,thresh(outputs.detach().cpu().numpy()))
 
             optimizer.step()
             optimizer.zero_grad()
@@ -75,18 +70,18 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, tra
         val_y_hat = np.array([])
 
         for step, batch in enumerate(val_loader):
-            
+
             data, labels = batch
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
             outputs = model(data)
-            
+
             loss = criterion(outputs,labels)
 
             val_loss += loss.item()
             val_size += data.shape[0]
 
-            val_y_hat = np.append(val_y_hat,thresh(outputs.detach().numpy()))
+            val_y_hat = np.append(val_y_hat,thresh(outputs.detach().cpu().numpy()))
 
 
         tr_fpr, tr_tpr, _ = roc_curve(train_y, tr_y_hat)

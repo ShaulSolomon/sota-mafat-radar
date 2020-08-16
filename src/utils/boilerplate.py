@@ -10,15 +10,12 @@ def append_dict(dict1, dict2):
     dict1[key] = np.concatenate([dict1[key], dict2[key]], axis=0)
   return dict1
 
-def classic_trainval(PATH_ROOT,PATH_DATA):
+def classic_trainval(PATH_DATA):
 
     # Set and test path to competition data files
     try:
-        if PATH_ROOT == 'INSERT HERE':
-            print('Please enter path to competition data files:')
-            competition_path = input()
         file_path = 'MAFAT RADAR Challenge - Training Set V1.csv'
-        with open(f'{PATH_ROOT}/{PATH_DATA}/{file_path}') as f:
+        with open(f'{PATH_DATA}/{file_path}') as f:
             f.readlines()
         print(colored('Everything is setup correctly', color='green'))
     except:
@@ -28,13 +25,13 @@ def classic_trainval(PATH_ROOT,PATH_DATA):
     # Loading and preparing the data
     # Loading Auxiliary Experiment set - can take a few minutes
     experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
-    experiment_auxiliary_df = utils.load_data(experiment_auxiliary, PATH_ROOT + PATH_DATA)
+    experiment_auxiliary_df = utils.load_data(experiment_auxiliary, PATH_DATA)
 
     train_aux = utils.aux_split(experiment_auxiliary_df)
 
     # Training set
     train_path = 'MAFAT RADAR Challenge - Training Set V1'
-    training_df = utils.load_data(train_path, PATH_ROOT + PATH_DATA)
+    training_df = utils.load_data(train_path, PATH_DATA)
 
     # Adding segments from the experiment auxiliary set to the training set
     train_df = append_dict(training_df, train_aux)
