@@ -20,6 +20,6 @@ class AlexNet2(nn.Module):
  
 
 def classic_alex():
-    model = torchvision.models.alexnet(pretrained=True)
+    model = alexnet(pretrained=True)
     model.classifier[6] = nn.Linear(4096,1) # change the last layer to have only two classes
     return model
