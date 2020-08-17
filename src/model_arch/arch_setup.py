@@ -106,19 +106,15 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, tra
 
 
         tr_fpr, tr_tpr, _ = roc_curve(tr_labels, tr_y_hat)
-
-        temp = accuracy_calc(tr_labels,tr_y_hat)
-        print("temp:",temp)
-
         val_fpr, val_tpr, _ = roc_curve(val_labels, val_y_hat)
 
         epoch_log = {'epoch': epoch,
                      'loss': tr_loss ,
                      'auc': auc(tr_fpr, tr_tpr),
-                     'acc': accuracy_calc(tr_y_hat,train_y),
+                     'acc': accuracy_calc(tr_y_hat,tr_labels),
                      'val_loss': val_loss ,
                      'val_auc': auc(val_fpr,val_tpr),
-                     'val_acc': accuracy_calc(val_y_hat,val_y)}
+                     'val_acc': accuracy_calc(val_y_hat,val_labels)}
 
 
         pretty_log(epoch_log)
