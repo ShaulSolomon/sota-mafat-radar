@@ -114,4 +114,10 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
 
         training_log.append(epoch_log)
 
-    #return training_log    
+    #return training_log   
+
+
+def plot_loss_train_test(trainloss,test_loss):
+    plt.hist(trainloss)
+    plt.hist(test_loss)
+    plt.tight_lat
