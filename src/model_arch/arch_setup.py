@@ -18,9 +18,9 @@ class DS(Dataset):
     def __getitem__(self, idx):
         data = self.df[idx]
         label = self.labels[idx]
-        if self.addit:
+        if self.addit is not None:
             addit = self.addit[idx]
-            return data,addit, label    
+            return [data,addit], label    
         return data,label
 
 def pretty_log(log):
@@ -62,12 +62,23 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, tra
         #train loop
         for step,batch in enumerate(tr_loader):
 
+            snr = None  #added
             data, labels = batch
             tr_labels = np.append(tr_labels,labels)
+            
+            #added
+            if isinstance(data, list):
+              snr = data[1].to(device,dtype=torch.float32)
+              data = data[0]
 
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
-            outputs = model(data)
+            
+            # added
+            if snr is not None:
+              outputs = model(data,snr)
+            else:
+              outputs = model(data)
 
             labels = labels.view(-1,1)
             outputs = outputs.view(-1,1)
@@ -93,10 +104,16 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, tra
 
             data, labels = batch
             val_labels = np.append(val_labels,labels)
-
+            #added
+            if isinstance(data, list):
+              snr = data[1].to(device,dtype=torch.float32)
+              data = data[0]
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
-            outputs = model(data)
+            if snr is not None:
+              outputs = model(data,snr)
+            else:
+              outputs = model(data)
 
             labels = labels.view(-1,1)
             outputs = outputs.view(-1,1)
