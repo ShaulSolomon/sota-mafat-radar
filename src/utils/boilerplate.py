@@ -1,6 +1,7 @@
-import experiment_utils as utils
+from src.utils import experiment_utils as utils
 from termcolor import colored
 import numpy as np
+import os
 
 # The function append_dict is for concatenating the training set 
 # with the Auxiliary data set segments
@@ -16,7 +17,8 @@ def classic_trainval(PATH_ROOT,PATH_DATA):
     try:
         if PATH_ROOT == 'INSERT HERE':
             print('Please enter path to competition data files:')
-            competition_path = input()
+            PATH_ROOT = input()
+            PATH_DATA = input()
         file_path = 'MAFAT RADAR Challenge - Training Set V1.csv'
         with open(f'{PATH_ROOT}/{PATH_DATA}/{file_path}') as f:
             f.readlines()

@@ -17,7 +17,7 @@ from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
 
 
 ### fetch the credentials ###
-creds_path = "../credentials.ini"
+creds_path = "credentials.ini"
 config_parser = configparser.ConfigParser()
 config_parser.read(creds_path)
 

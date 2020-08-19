@@ -5,7 +5,6 @@ import torch.nn.functional as F
 class base_base_model(nn.Module):
     '''
     Architecture built identical to base cnn model given to us.
-
     After some googling - it seems that for:
         [x] - kernel_initializer - as its set to init its the same as the default
         [ ] - bias_regularizer - that it set in the optimizer
@@ -28,4 +27,4 @@ class base_base_model(nn.Module):
         x = torch.flatten(x).reshape(batch_size,-1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        return F.sigmoid(self.fc3(x))
+        return torch.sigmoid(self.fc3(x))
