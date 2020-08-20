@@ -296,8 +296,6 @@ def load_data(file_path, folder=None):
     data_dictionary[key] = np.array(data_dictionary[key])
 
   return data_dictionary
-  
-import os
 
 def load_pkl_data(file_path, folder=None):
   """
@@ -829,3 +827,62 @@ def plot_confusion_matrix(cm, classes,
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
+
+def generate_shifts(data_df,data,shift_by=16):
+  """
+  generate shifts from the data. important: pay attention if preprocessing has already been done on the data!!
+  preprocess 'merges' the burst into the iq values.
+
+  Arguments:
+    data_df -- {dataframe} -- parameters for each segment (geo type+id, snr etc)
+    data -- {ndarray} -- the data set (only iq and burst)
+    shift_by -- (int) Validation / Test (used in syntehtic test)
+
+  Returns:
+    list of dictionary. each item in list holds the parameter of a new shifted segments + iq + burst
+  """  
+  new_segments_results = []
+
+  all_track_ids = data_df.track_id.unique()
+
+  for track_id_t in all_track_ids:
+
+    segment_idxs = list(data_df[data_df.track_id==track_id_t].index)
+    segment_idxs = [(x,y) for x,y in zip(segment_idxs, segment_idxs[1:])]
+
+    iq,burst = concatenate_track(data, track_id_t, snr_plot='both')
+
+    x_ind = -32
+    for seg_id in segment_idxs:
+        x_ind = x_ind +32
+        #print(data.iloc[seg_id])
+
+        columns = ['geolocation_type','geolocation_id','sensor_id','snr_type','date_index','target_type']
+        for col in columns:
+          if data_df.iloc[seg_id[0]][col] != data_df.iloc[seg_id[1]][col]:
+            #print(f"{seg_id[0]},{seg_id[1]}: diff {col}. skip")
+            continue
+
+        if data_df.iloc[seg_id[0]].is_validation or data_df.iloc[seg_id[1]].is_validation:
+          #print(f"{seg_id[0]},{seg_id[1]}: is_validation. skip")
+          continue
+
+        new_seg_start = x_ind+shift_by
+
+        #print(f"new seg: {new_seg_start}-{new_seg_start+32}")
+        new_segments_results.append({
+            'segment_id': 100000 + data_df.iloc[seg_id[0]].segment_id,
+            'track_id': data_df.iloc[seg_id[0]].track_id,
+            'geolocation_type': data_df.iloc[seg_id[0]].geolocation_type,
+            'geolocation_id': data_df.iloc[seg_id[0]].geolocation_id,
+            'sensor_id': data_df.iloc[seg_id[0]].sensor_id,
+            'snr_type': data_df.iloc[seg_id[0]].snr_type,
+            'date_index': data_df.iloc[seg_id[0]].date_index,
+            'target_type': data_df.iloc[seg_id[0]].target_type,
+            'is_validation': False,
+            'iq_sweep_burst': iq[:,new_seg_start:new_seg_start+32],
+            'doppler_burst': burst[new_seg_start:new_seg_start+32], 
+            'shift': shift_by
+        })
+
+  return new_segments_results
