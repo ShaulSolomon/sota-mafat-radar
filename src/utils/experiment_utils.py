@@ -15,6 +15,7 @@ import matplotlib.patches as patches
 import math
 from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
 
+#import ipdb -> add ipdb.set_trace() where you need the breakpoint
     
 spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
        [2.444e-01, 1.534e-01, 6.728e-01],
