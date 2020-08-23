@@ -137,3 +137,6 @@ dmypy.json
 credentials.ini
 ipynb.out
 wandb/
+ngrok-stable-linux-amd64.zip
+ngrok
+.vscode/

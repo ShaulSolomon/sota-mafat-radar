@@ -13,15 +13,15 @@ from matplotlib.colors import LinearSegmentedColormap
 import configparser
 import matplotlib.patches as patches
 import math
-from sklearn.metrics import roc_auc_score, roc_curve, auc
-
+from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
+from sklearn.manifold import TSNE
+from tensorflow.keras.models import Model
 
 
 ### fetch the credentials ###
 creds_path = "credentials.ini"
 config_parser = configparser.ConfigParser()
 config_parser.read(creds_path)
-
 
 PATH_ROOT = config_parser['MAIN']["PATH_ROOT"]
 PATH_DATA = config_parser['MAIN']["PATH_DATA"]
@@ -286,7 +286,7 @@ spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
        [9.749e-01, 9.782e-01, 8.720e-02],
        [9.769e-01, 9.839e-01, 8.050e-02]])
 
-np.save('./data/cmap.npy', spectrogram_cmap)
+# np.save('./data/cmap.npy', spectrogram_cmap)
 
 
 def load_data(file_path, folder=None):
@@ -308,8 +308,6 @@ def load_data(file_path, folder=None):
     data_dictionary[key] = np.array(data_dictionary[key])
 
   return data_dictionary
-  
-import os
 
 def load_pkl_data(file_path, folder=None):
   """
@@ -348,6 +346,14 @@ def load_csv_metadata(file_path, folder=None):
     output = pd.read_csv(data)
   return output
 
+
+def append_dict(dict1, dict2):
+  """The function append_dict is for concatenating the training set 
+  with the Auxiliary data set segments 
+  """ 
+  for key in dict1:
+    dict1[key] = np.concatenate([dict1[key], dict2[key]], axis=0)
+  return dict1
 
 
 def splitArrayBy(idx,pattern):
@@ -848,3 +854,123 @@ def plot_confusion_matrix(cm, classes,
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
+
+def generate_shifts(data_df,data,shift_by=16):
+  """
+  generate shifts from the data. important: pay attention if preprocessing has already been done on the data!!
+  preprocess 'merges' the burst into the iq values.
+
+  Arguments:
+    data_df -- {dataframe} -- parameters for each segment (geo type+id, snr etc)
+    data -- {ndarray} -- the data set (only iq and burst)
+    shift_by -- (int) Validation / Test (used in syntehtic test)
+
+  Returns:
+    list of dictionary. each item in list holds the parameter of a new shifted segments + iq + burst
+  """  
+  new_segments_results = []
+
+  all_track_ids = data_df.track_id.unique()
+
+  for track_id_t in all_track_ids:
+
+    segment_idxs = list(data_df[data_df.track_id==track_id_t].index)
+    segment_idxs = [(x,y) for x,y in zip(segment_idxs, segment_idxs[1:])]
+
+    iq,burst = concatenate_track(data, track_id_t, snr_plot='both')
+
+    x_ind = -32
+    for seg_id in segment_idxs:
+        x_ind = x_ind +32
+        #print(data.iloc[seg_id])
+
+        columns = ['geolocation_type','geolocation_id','sensor_id','snr_type','date_index','target_type']
+        for col in columns:
+          if data_df.iloc[seg_id[0]][col] != data_df.iloc[seg_id[1]][col]:
+            #print(f"{seg_id[0]},{seg_id[1]}: diff {col}. skip")
+            continue
+
+        if data_df.iloc[seg_id[0]].is_validation or data_df.iloc[seg_id[1]].is_validation:
+          #print(f"{seg_id[0]},{seg_id[1]}: is_validation. skip")
+          continue
+
+        new_seg_start = x_ind+shift_by
+
+        #print(f"new seg: {new_seg_start}-{new_seg_start+32}")
+        new_segments_results.append({
+            'segment_id': 100000 + data_df.iloc[seg_id[0]].segment_id,
+            'track_id': data_df.iloc[seg_id[0]].track_id,
+            'geolocation_type': data_df.iloc[seg_id[0]].geolocation_type,
+            'geolocation_id': data_df.iloc[seg_id[0]].geolocation_id,
+            'sensor_id': data_df.iloc[seg_id[0]].sensor_id,
+            'snr_type': data_df.iloc[seg_id[0]].snr_type,
+            'date_index': data_df.iloc[seg_id[0]].date_index,
+            'target_type': data_df.iloc[seg_id[0]].target_type,
+            'is_validation': False,
+            'iq_sweep_burst': iq[:,new_seg_start:new_seg_start+32],
+            'doppler_burst': burst[new_seg_start:new_seg_start+32], 
+            'shift': shift_by
+        })
+
+  return new_segments_results
+
+def make_tsne(model,data,labels,preds,test,layer_name='dense_1'):
+  """
+  make TSNE visualization of the data overlayed by labels and misclassifications
+
+  Arguments:
+    model -- {keras} -- model variable
+    data -- {dictionary} -- datapoints. shape (?,128,32,1)
+    labels -- (ndarray) 0/1 for correct labels
+    preds -- (ndarray) 0/1 for model predictions
+    test -- (ndarray) test datapoints. shape (?,128,32,1). used to highlight their locations 
+    layer_name -- (string) layer in the model to extract the predictions from
+  """
+  intermediate_layer_model = Model(inputs=model.input,
+                                 outputs=model.get_layer(layer_name).output)
+  intermediate_output = intermediate_layer_model.predict(data)
+  print(intermediate_output.shape)
+  tsne_data = intermediate_output
+
+  # possibly append the test data
+  if test.shape[0]!=0:
+    test_output = intermediate_layer_model.predict(test)
+    print(test_output.shape)
+    _td = np.concatenate( (tsne_data, test_output))
+    tsne_data = _td
+
+  # assign a color for each type of signal
+  colors = []
+  missc = 0
+
+  if labels.shape[0]==0:
+    for i in range(data.shape[0]):
+      colors.append('magenta')
+
+  else:
+    for i in range(labels.shape[0]):
+      color = 'green' if labels[i]==0 else 'blue'
+      if labels[i]!=preds[i]:
+        color = 'red' #2
+        missc += 1
+      colors.append(color)
+      
+  if test.shape[0]!=0:
+    for i in range(test.shape[0]):
+      colors.append('cyan')
+
+  print("misclassify count=", missc)
+
+  tmodel = TSNE(metric='cosine',perplexity=5, n_iter=1000)
+  transformed = tmodel.fit_transform(tsne_data)
+
+  # plot results 
+
+  from matplotlib.pyplot import figure
+  figure(figsize=(10,10))
+  plt.xticks([])
+  plt.yticks([])
+  x = transformed[:,0]
+  y = transformed[:,1]
+  plt.scatter(x, y, c=colors, alpha=.65)
+  plt.show()
