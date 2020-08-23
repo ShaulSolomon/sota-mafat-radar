@@ -195,11 +195,11 @@ def plot_ROC_local_gpu(train_loader, val_loader, model,device):
     vl_y_hat = np.array([])
 
     for data,label in train_loader:
-        tr_y_hat = np.append(tr_y_hat,np.array(thresh(model(data.to(device).type(torch.float32)).detach().cpu())))
+        tr_y_hat = np.append(tr_y_hat,np.array(model(data.to(device).type(torch.float32)).detach().cpu()))
         tr_y = np.append(tr_y, np.array(label.detach().cpu()))
 
     for data,label in val_loader:
-        vl_y_hat = np.append(vl_y_hat, np.array(thresh(model(data.to(device).type(torch.float32)).detach().cpu())))
+        vl_y_hat = np.append(vl_y_hat, np.array(model(data.to(device).type(torch.float32)).detach().cpu()))
         vl_y = np.append(vl_y,np.array(label.detach().cpu()))
 
 
