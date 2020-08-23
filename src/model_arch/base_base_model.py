@@ -27,4 +27,8 @@ class base_base_model(nn.Module):
         x = torch.flatten(x).reshape(batch_size,-1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+<<<<<<< HEAD:src/model_arch/base_base_model.py
         return torch.sigmoid(self.fc3(x))
+=======
+        return torch.sigmoid(self.fc3(x))
+>>>>>>> 9314269ce19ae5880669352a1f6c89a9d7062193:src/model_arch/base_base_model.py

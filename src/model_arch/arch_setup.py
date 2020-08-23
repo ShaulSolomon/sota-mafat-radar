@@ -7,11 +7,22 @@ from src.utils import experiment_utils
 
 
 
+<<<<<<< HEAD
 class DS(Dataset):
     def __init__(self,df,labels):
         super().__init__()
         self.df=df
         self.labels=labels
+=======
+
+class DS(Dataset):
+    def __init__(self,df,labels, addit = None):
+        super().__init__()
+        self.df=df
+        self.labels=labels
+        self.addit = np.array(addit)
+
+>>>>>>> 9314269ce19ae5880669352a1f6c89a9d7062193
 
     def __len__(self):
         return self.df.shape[0]
@@ -19,6 +30,14 @@ class DS(Dataset):
     def __getitem__(self, idx):
         data = self.df[idx]
         label = self.labels[idx]
+<<<<<<< HEAD
+=======
+
+        if self.addit is not None:
+            addit = self.addit[idx]
+            return [data,addit], label    
+
+>>>>>>> 9314269ce19ae5880669352a1f6c89a9d7062193
         return data,label
 
 def pretty_log(log):
@@ -43,7 +62,12 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
     if log:
         training_log = log
     else:
+<<<<<<< HEAD
         training_log = []
+=======
+        training_log =[]
+
+>>>>>>> 9314269ce19ae5880669352a1f6c89a9d7062193
 
     for epoch in range(num_epochs):
 
@@ -57,6 +81,7 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         #train loop
         for step,batch in enumerate(tr_loader):
 
+<<<<<<< HEAD
             data, labels = batch
             tr_labels = np.append(tr_labels,labels)
 
@@ -65,13 +90,36 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
 
             outputs = model(data)
 
+=======
+            snr = None  #added
+            data, labels = batch
+            tr_labels = np.append(tr_labels,labels)
+            
+            #added
+            if isinstance(data, list):
+              snr = data[1].to(device,dtype=torch.float32)
+              data = data[0]
+
+            data = data.to(device,dtype=torch.float32)
+            labels = labels.to(device,dtype=torch.float32)
+            
+            # added
+            if snr:
+              outputs = model(data,snr)
+            else:
+              outputs = model(data)
+              
+>>>>>>> 9314269ce19ae5880669352a1f6c89a9d7062193
             labels = labels.view(-1,1)
             outputs = outputs.view(-1,1)
 
             loss = criterion(outputs,labels)
             loss.backward()
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9314269ce19ae5880669352a1f6c89a9d7062193
             tr_loss+=loss.item()
             tr_size+=data.shape[0]
 
@@ -94,9 +142,23 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
             data, labels = batch
             val_labels = np.append(val_labels,labels)
 
+<<<<<<< HEAD
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
             outputs = model(data)
+=======
+            #added
+            if isinstance(data, list):
+              snr = data[1].to(device,dtype=torch.float32)
+              data = data[0]
+            data = data.to(device,dtype=torch.float32)
+            labels = labels.to(device,dtype=torch.float32)
+            if snr is not None:
+              outputs = model(data,snr)
+            else:
+              outputs = model(data)
+
+>>>>>>> 9314269ce19ae5880669352a1f6c89a9d7062193
 
             labels = labels.view(-1,1)
             outputs = outputs.view(-1,1)
@@ -125,6 +187,10 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
 
         training_log.append(epoch_log)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 9314269ce19ae5880669352a1f6c89a9d7062193
         if WANDB_enable == True:
             wandb.log(epoch_log)
 
@@ -168,11 +234,19 @@ def plot_ROC_local_gpu(train_loader, val_loader, model,device):
     vl_y_hat = np.array([])
 
     for data,label in train_loader:
+<<<<<<< HEAD
         tr_y_hat = np.append(tr_y_hat,np.array(thresh(model(data.to(device).type(torch.float32)).detach().cpu())))
         tr_y = np.append(tr_y, np.array(label.detach().cpu()))
 
     for data,label in val_loader:
         vl_y_hat = np.append(vl_y_hat, np.array(thresh(model(data.to(device).type(torch.float32)).detach().cpu())))
+=======
+        tr_y_hat = np.append(tr_y_hat,np.array(model(data.to(device).type(torch.float32)).detach().cpu()))
+        tr_y = np.append(tr_y, np.array(label.detach().cpu()))
+
+    for data,label in val_loader:
+        vl_y_hat = np.append(vl_y_hat, np.array(model(data.to(device).type(torch.float32)).detach().cpu()))
+>>>>>>> 9314269ce19ae5880669352a1f6c89a9d7062193
         vl_y = np.append(vl_y,np.array(label.detach().cpu()))
 
 
@@ -200,4 +274,9 @@ def plot_ROC_cpu(train_x, val_x, train_y, val_y, model,device):
     pred = [x1,x2]
 
     actual = [train_y, val_y]
+<<<<<<< HEAD
     experiment_utils.stats(pred, actual)
+=======
+    experiment_utils.stats(pred, actual)
+
+>>>>>>> 9314269ce19ae5880669352a1f6c89a9d7062193

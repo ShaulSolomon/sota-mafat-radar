@@ -14,6 +14,8 @@ import configparser
 import matplotlib.patches as patches
 import math
 from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
+from sklearn.manifold import TSNE
+from tensorflow.keras.models import Model
 
 
 ### fetch the credentials ###
@@ -306,8 +308,6 @@ def load_data(file_path, folder=None):
     data_dictionary[key] = np.array(data_dictionary[key])
 
   return data_dictionary
-  
-import os
 
 def load_pkl_data(file_path, folder=None):
   """
@@ -347,6 +347,15 @@ def load_csv_metadata(file_path, folder=None):
   return output
 
 
+def append_dict(dict1, dict2):
+  """The function append_dict is for concatenating the training set 
+  with the Auxiliary data set segments 
+  """ 
+  for key in dict1:
+    dict1[key] = np.concatenate([dict1[key], dict2[key]], axis=0)
+  return dict1
+
+
 def splitArrayBy(idx,pattern):
   """
   Split a list by a specific ratio. The ratio is given by the pattern. For a 2:1 ratio, use pattren=[2,1]
@@ -379,46 +388,48 @@ def hann(iq, window=None):
     iq -- {ndarray} -- 'iq_sweep_burst' array
     window -- Range of Hann window indices (Default=None)
       If None the whole column is taken
-
-  Returns:
+    Returns:
       Regularized iq shaped as (window[1] - window[0] - 2, iq.shape[1])
-  """
-  if window is None:
-      window = [0, len(iq)]
+    """
+    if window is None:
+        window = [0, len(iq)]
 
-  N = window[1] - window[0] - 1
-  n = np.arange(window[0], window[1])
-  n = n.reshape(len(n), 1)
-  hannCol = 0.5 * (1 - np.cos(2 * np.pi * (n / N)))
-  return (hannCol * iq[window[0]:window[1]])[1:-1]
+    N = window[1] - window[0] - 1
+    n = np.arange(window[0], window[1])
+    n = n.reshape(len(n), 1)
+    hannCol = 0.5 * (1 - np.cos(2 * np.pi * (n / N)))
+    return (hannCol * iq[window[0]:window[1]])[1:-1]
 
 
 def calculate_spectrogram(iq_burst, axis=0, flip=True):
-  """
-  Calculates spectrogram of 'iq_sweep_burst'.
+    """
+    Calculates spectrogram of 'iq_sweep_burst'.
 
-  Arguments:
-    iq_burst -- {ndarray} -- 'iq_sweep_burst' array
-    axis -- {int} -- axis to perform DFT in (Default = 0)
+    Arguments:
+        iq_burst -- {ndarray} -- 'iq_sweep_burst' array
+        axis -- {int} -- axis to perform DFT in (Default = 0)
   
-  Returns:
+    Returns:
     Transformed iq_burst array
-  """
-  iq = np.log(np.abs(np.fft.fft(hann(iq_burst), axis=axis)))
-  iq = np.maximum(np.median(iq) - 1, iq)
-  if flip:
-    iq = np.flip(iq, axis=0)
+    """
+    iq = np.log(np.abs(np.fft.fft(hann(iq_burst), axis=axis)))
+    iq = np.maximum(np.median(iq) - 1, iq)
+    if flip:
+        iq = np.flip(iq, axis=0)
 
-  return iq
+    return iq
+
 
 
 def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
                     color_map_path=None, save_path=None, flip=True, return_spec=False, 
-                    figsize=None, label=None, ax=None, title=None,val_overlay=None):
-  """
-  Plots spectrogram of 'iq_sweep_burst'.
+                    figsize=None, label=None, ax=None, title=None,val_overlay=None,
+                    theta=None):
+    """
+    Plots spectrogram of 'iq_sweep_burst'.
 
-  Arguments:
+    Arguments:
+
     iq_burst -- {ndarray} -- 'iq_sweep_burst' array
     doppler_burst -- {ndarray} -- 'doppler_burst' array (center of mass)
       if is 0 (or zero array) then not plotted
@@ -435,62 +446,64 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
     ax -- {plt ax} -- plt ax object. can be used to show the result in subplots
     title -- title for the plot
     val_overlay -- (list) draw a rectangle around validation segments, red for fail, green for success
+    theta -- {float} degrees to rotate spectogram by, in radians (Default = None)
   Returns:
     Spectrogram data if return_spec is True
     """
-  if color_map_path is not None:
+    if color_map_path is not None:
         cm_data = np.load(color_map_path)
         color_map = LinearSegmentedColormap.from_list(color_map_name, cm_data)
-  elif color_map_name == 'parula':
+    elif color_map_name == 'parula':
         print("Error: when 'parula' color map is used, color_map_path should be provided.")
         print("Switching color map to 'viridis'.")
         color_map = LinearSegmentedColormap.from_list(color_map_name, spectrogram_cmap)
-  else:
+    else:
         color_map = plt.get_cmap(color_map_name)
 
-  iq = calculate_spectrogram(iq_burst, flip=flip)
-  
-  if return_spec:
-      return iq
+    iq = calculate_spectrogram(iq_burst, flip=flip)
+#     if theta:
+#         iq = rotate_spectogram(iq, theta)
+    if return_spec:
+        return iq
 
-  plt_o = plt
-  if ax is not None: 
+    plt_o = plt
+    if ax is not None: 
         plt_o = ax
 
-  if figsize is not None:
-    plt_o.rcParams["figure.figsize"] = figsize
+    if figsize is not None:
+        plt_o.rcParams["figure.figsize"] = figsize
 
 
-  if doppler_burst is not None:
-      pixel_shift = 0.5
-      if flip:
-          plt_o.plot(pixel_shift + np.arange(len(doppler_burst)),
-                    pixel_shift + (len(iq) - doppler_burst), '.w')
-      else:
-          plt_o.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
+    if doppler_burst is not None:
+        pixel_shift = 0.5
+        if flip:
+            plt_o.plot(pixel_shift + np.arange(len(doppler_burst)),
+                       pixel_shift + (len(iq) - doppler_burst), '.w')
+        else:
+            plt_o.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
 
-  ax1 = plt.gca()
-  if val_overlay is not None:
-    for i,seg in enumerate(val_overlay):
-      if seg is None: 
-        continue
-      overlay_color = 'g' if seg==True else 'r'
-      x_pos = i*32
-      rect = patches.Rectangle((x_pos,0),31,127,linewidth=2,edgecolor=overlay_color,facecolor='none')
-      ax1.add_patch(rect)
+    ax1 = plt.gca()
+    if val_overlay is not None:
+        for i,seg in enumerate(val_overlay):
+            if seg is None: 
+                continue
+        overlay_color = 'g' if seg==True else 'r'
+        x_pos = i*32
+        rect = patches.Rectangle((x_pos,0),31,127,linewidth=2,edgecolor=overlay_color,facecolor='none')
+        ax1.add_patch(rect)
 
-  plt_o.imshow(iq, cmap=color_map)
+    plt_o.imshow(iq, cmap=color_map)
 
-  if save_path is not None:
-      plt_o.imsave(save_path, iq, cmap=color_map)
+    if save_path is not None:
+        plt_o.imsave(save_path, iq, cmap=color_map)
 
-  if title is not None:
-    if ax is None:
-      plt_o.title(title)
-    else:
-      plt_o.set_title(title)
+    if title is not None:
+        if ax is None:
+            plt_o.title(title)
+        else:
+            plt_o.set_title(title)
 
-  if ax is None: 
+    if ax is None: 
         if isinstance(label, str): plt_o.title(label)
         plt_o.show()
         plt_o.clf()
@@ -733,6 +746,7 @@ def data_preprocess(data):
 
 # Function for splitting the data to training and validation
 # and function for selecting samples of segments from the Auxiliary dataset
+
 def split_train_val(data,ratio=6):
   """
   Split the data to train and validation set.
@@ -778,6 +792,7 @@ def aux_split(data):
 
 # Function for calculating the final ROC-AUC score and plot the ROC curve,
 # used in the "Results" section
+
 def stats(pred, actual, mode="Validation"):
   """
   Computes the model ROC-AUC score and plots the ROC curve.
@@ -839,3 +854,123 @@ def plot_confusion_matrix(cm, classes,
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
+
+def generate_shifts(data_df,data,shift_by=16):
+  """
+  generate shifts from the data. important: pay attention if preprocessing has already been done on the data!!
+  preprocess 'merges' the burst into the iq values.
+
+  Arguments:
+    data_df -- {dataframe} -- parameters for each segment (geo type+id, snr etc)
+    data -- {ndarray} -- the data set (only iq and burst)
+    shift_by -- (int) Validation / Test (used in syntehtic test)
+
+  Returns:
+    list of dictionary. each item in list holds the parameter of a new shifted segments + iq + burst
+  """  
+  new_segments_results = []
+
+  all_track_ids = data_df.track_id.unique()
+
+  for track_id_t in all_track_ids:
+
+    segment_idxs = list(data_df[data_df.track_id==track_id_t].index)
+    segment_idxs = [(x,y) for x,y in zip(segment_idxs, segment_idxs[1:])]
+
+    iq,burst = concatenate_track(data, track_id_t, snr_plot='both')
+
+    x_ind = -32
+    for seg_id in segment_idxs:
+        x_ind = x_ind +32
+        #print(data.iloc[seg_id])
+
+        columns = ['geolocation_type','geolocation_id','sensor_id','snr_type','date_index','target_type']
+        for col in columns:
+          if data_df.iloc[seg_id[0]][col] != data_df.iloc[seg_id[1]][col]:
+            #print(f"{seg_id[0]},{seg_id[1]}: diff {col}. skip")
+            continue
+
+        if data_df.iloc[seg_id[0]].is_validation or data_df.iloc[seg_id[1]].is_validation:
+          #print(f"{seg_id[0]},{seg_id[1]}: is_validation. skip")
+          continue
+
+        new_seg_start = x_ind+shift_by
+
+        #print(f"new seg: {new_seg_start}-{new_seg_start+32}")
+        new_segments_results.append({
+            'segment_id': 100000 + data_df.iloc[seg_id[0]].segment_id,
+            'track_id': data_df.iloc[seg_id[0]].track_id,
+            'geolocation_type': data_df.iloc[seg_id[0]].geolocation_type,
+            'geolocation_id': data_df.iloc[seg_id[0]].geolocation_id,
+            'sensor_id': data_df.iloc[seg_id[0]].sensor_id,
+            'snr_type': data_df.iloc[seg_id[0]].snr_type,
+            'date_index': data_df.iloc[seg_id[0]].date_index,
+            'target_type': data_df.iloc[seg_id[0]].target_type,
+            'is_validation': False,
+            'iq_sweep_burst': iq[:,new_seg_start:new_seg_start+32],
+            'doppler_burst': burst[new_seg_start:new_seg_start+32], 
+            'shift': shift_by
+        })
+
+  return new_segments_results
+
+def make_tsne(model,data,labels,preds,test,layer_name='dense_1'):
+  """
+  make TSNE visualization of the data overlayed by labels and misclassifications
+
+  Arguments:
+    model -- {keras} -- model variable
+    data -- {dictionary} -- datapoints. shape (?,128,32,1)
+    labels -- (ndarray) 0/1 for correct labels
+    preds -- (ndarray) 0/1 for model predictions
+    test -- (ndarray) test datapoints. shape (?,128,32,1). used to highlight their locations 
+    layer_name -- (string) layer in the model to extract the predictions from
+  """
+  intermediate_layer_model = Model(inputs=model.input,
+                                 outputs=model.get_layer(layer_name).output)
+  intermediate_output = intermediate_layer_model.predict(data)
+  print(intermediate_output.shape)
+  tsne_data = intermediate_output
+
+  # possibly append the test data
+  if test.shape[0]!=0:
+    test_output = intermediate_layer_model.predict(test)
+    print(test_output.shape)
+    _td = np.concatenate( (tsne_data, test_output))
+    tsne_data = _td
+
+  # assign a color for each type of signal
+  colors = []
+  missc = 0
+
+  if labels.shape[0]==0:
+    for i in range(data.shape[0]):
+      colors.append('magenta')
+
+  else:
+    for i in range(labels.shape[0]):
+      color = 'green' if labels[i]==0 else 'blue'
+      if labels[i]!=preds[i]:
+        color = 'red' #2
+        missc += 1
+      colors.append(color)
+      
+  if test.shape[0]!=0:
+    for i in range(test.shape[0]):
+      colors.append('cyan')
+
+  print("misclassify count=", missc)
+
+  tmodel = TSNE(metric='cosine',perplexity=5, n_iter=1000)
+  transformed = tmodel.fit_transform(tsne_data)
+
+  # plot results 
+
+  from matplotlib.pyplot import figure
+  figure(figsize=(10,10))
+  plt.xticks([])
+  plt.yticks([])
+  x = transformed[:,0]
+  y = transformed[:,1]
+  plt.scatter(x, y, c=colors, alpha=.65)
+  plt.show()
