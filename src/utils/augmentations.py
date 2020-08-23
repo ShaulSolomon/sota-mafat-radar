@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.ndimage.interpolation import rotate
-from code.utils import experiment_utils as utils
+from src.utils import experiment_utils as utils
 
 
 def rotate_iq(iq, theta):
