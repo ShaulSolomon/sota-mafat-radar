@@ -1,6 +1,8 @@
 from src.utils import experiment_utils as utils
 from termcolor import colored
 import numpy as np
+import pandas as pd
+
 
 # The function append_dict is for concatenating the training set 
 # with the Auxiliary data set segments

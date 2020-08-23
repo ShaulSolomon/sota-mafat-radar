@@ -7,11 +7,14 @@ from src.utils import experiment_utils
 
 
 
+
 class DS(Dataset):
-    def __init__(self,df,labels):
+    def __init__(self,df,labels, addit = None):
         super().__init__()
         self.df=df
         self.labels=labels
+        self.addit = np.array(addit)
+
 
     def __len__(self):
         return self.df.shape[0]
@@ -19,6 +22,11 @@ class DS(Dataset):
     def __getitem__(self, idx):
         data = self.df[idx]
         label = self.labels[idx]
+
+        if self.addit is not None:
+            addit = self.addit[idx]
+            return [data,addit], label    
+
         return data,label
 
 def pretty_log(log):
@@ -43,7 +51,8 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
     if log:
         training_log = log
     else:
-    training_log =[]
+        training_log =[]
+
 
     for epoch in range(num_epochs):
 
@@ -57,20 +66,29 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         #train loop
         for step,batch in enumerate(tr_loader):
 
+            snr = None  #added
             data, labels = batch
             tr_labels = np.append(tr_labels,labels)
+            
+            #added
+            if isinstance(data, list):
+              snr = data[1].to(device,dtype=torch.float32)
+              data = data[0]
 
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
-
-            outputs = model(data)
-
+            
+            # added
+            if snr:
+              outputs = model(data,snr)
+            else:
+              outputs = model(data)
+              
             labels = labels.view(-1,1)
             outputs = outputs.view(-1,1)
 
             loss = criterion(outputs,labels)
             loss.backward()
-
 
             tr_loss+=loss.item()
             tr_size+=data.shape[0]
@@ -94,9 +112,17 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
             data, labels = batch
             val_labels = np.append(val_labels,labels)
 
+            #added
+            if isinstance(data, list):
+              snr = data[1].to(device,dtype=torch.float32)
+              data = data[0]
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
-            outputs = model(data)
+            if snr is not None:
+              outputs = model(data,snr)
+            else:
+              outputs = model(data)
+
 
             labels = labels.view(-1,1)
             outputs = outputs.view(-1,1)
@@ -124,6 +150,7 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         pretty_log(epoch_log)
 
         training_log.append(epoch_log)
+
 
         if WANDB_enable == True:
             wandb.log(epoch_log)
@@ -201,3 +228,4 @@ def plot_ROC_cpu(train_x, val_x, train_y, val_y, model,device):
 
     actual = [train_y, val_y]
     experiment_utils.stats(pred, actual)
+
