@@ -134,3 +134,6 @@ dmypy.json
 /data/*.csv
 /data/*.pkl
 .idea/
+credentials.ini
+ipynb.out
+wandb/
