@@ -17,6 +17,7 @@ from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
 from sklearn.manifold import TSNE
 from tensorflow.keras.models import Model
 
+
 #import ipdb -> add ipdb.set_trace() where you need the breakpoint
     
 spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
@@ -345,6 +346,7 @@ def append_dict(dict1, dict2):
     dict1[key] = np.concatenate([dict1[key], dict2[key]], axis=0)
   return dict1
 
+
 def splitArrayBy(idx,pattern):
   """
   Split a list by a specific ratio. The ratio is given by the pattern. For a 2:1 ratio, use pattren=[2,1]
@@ -377,46 +379,48 @@ def hann(iq, window=None):
     iq -- {ndarray} -- 'iq_sweep_burst' array
     window -- Range of Hann window indices (Default=None)
       If None the whole column is taken
-
-  Returns:
+    Returns:
       Regularized iq shaped as (window[1] - window[0] - 2, iq.shape[1])
-  """
-  if window is None:
-      window = [0, len(iq)]
+    """
+    if window is None:
+        window = [0, len(iq)]
 
-  N = window[1] - window[0] - 1
-  n = np.arange(window[0], window[1])
-  n = n.reshape(len(n), 1)
-  hannCol = 0.5 * (1 - np.cos(2 * np.pi * (n / N)))
-  return (hannCol * iq[window[0]:window[1]])[1:-1]
+    N = window[1] - window[0] - 1
+    n = np.arange(window[0], window[1])
+    n = n.reshape(len(n), 1)
+    hannCol = 0.5 * (1 - np.cos(2 * np.pi * (n / N)))
+    return (hannCol * iq[window[0]:window[1]])[1:-1]
 
 
 def calculate_spectrogram(iq_burst, axis=0, flip=True):
-  """
-  Calculates spectrogram of 'iq_sweep_burst'.
+    """
+    Calculates spectrogram of 'iq_sweep_burst'.
 
-  Arguments:
-    iq_burst -- {ndarray} -- 'iq_sweep_burst' array
-    axis -- {int} -- axis to perform DFT in (Default = 0)
+    Arguments:
+        iq_burst -- {ndarray} -- 'iq_sweep_burst' array
+        axis -- {int} -- axis to perform DFT in (Default = 0)
   
-  Returns:
+    Returns:
     Transformed iq_burst array
-  """
-  iq = np.log(np.abs(np.fft.fft(hann(iq_burst), axis=axis)))
-  iq = np.maximum(np.median(iq) - 1, iq)
-  if flip:
-    iq = np.flip(iq, axis=0)
+    """
+    iq = np.log(np.abs(np.fft.fft(hann(iq_burst), axis=axis)))
+    iq = np.maximum(np.median(iq) - 1, iq)
+    if flip:
+        iq = np.flip(iq, axis=0)
 
-  return iq
+    return iq
+
 
 
 def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
                     color_map_path=None, save_path=None, flip=True, return_spec=False, 
-                    figsize=None, label=None, ax=None, title=None,val_overlay=None):
-  """
-  Plots spectrogram of 'iq_sweep_burst'.
+                    figsize=None, label=None, ax=None, title=None,val_overlay=None,
+                    theta=None):
+    """
+    Plots spectrogram of 'iq_sweep_burst'.
 
-  Arguments:
+    Arguments:
+
     iq_burst -- {ndarray} -- 'iq_sweep_burst' array
     doppler_burst -- {ndarray} -- 'doppler_burst' array (center of mass)
       if is 0 (or zero array) then not plotted
@@ -433,62 +437,64 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
     ax -- {plt ax} -- plt ax object. can be used to show the result in subplots
     title -- title for the plot
     val_overlay -- (list) draw a rectangle around validation segments, red for fail, green for success
+    theta -- {float} degrees to rotate spectogram by, in radians (Default = None)
   Returns:
     Spectrogram data if return_spec is True
     """
-  if color_map_path is not None:
+    if color_map_path is not None:
         cm_data = np.load(color_map_path)
         color_map = LinearSegmentedColormap.from_list(color_map_name, cm_data)
-  elif color_map_name == 'parula':
+    elif color_map_name == 'parula':
         print("Error: when 'parula' color map is used, color_map_path should be provided.")
         print("Switching color map to 'viridis'.")
         color_map = LinearSegmentedColormap.from_list(color_map_name, spectrogram_cmap)
-  else:
+    else:
         color_map = plt.get_cmap(color_map_name)
 
-  iq = calculate_spectrogram(iq_burst, flip=flip)
-  
-  if return_spec:
-      return iq
+    iq = calculate_spectrogram(iq_burst, flip=flip)
+#     if theta:
+#         iq = rotate_spectogram(iq, theta)
+    if return_spec:
+        return iq
 
-  plt_o = plt
-  if ax is not None: 
+    plt_o = plt
+    if ax is not None: 
         plt_o = ax
 
-  if figsize is not None:
-    plt_o.rcParams["figure.figsize"] = figsize
+    if figsize is not None:
+        plt_o.rcParams["figure.figsize"] = figsize
 
 
-  if doppler_burst is not None:
-      pixel_shift = 0.5
-      if flip:
-          plt_o.plot(pixel_shift + np.arange(len(doppler_burst)),
-                    pixel_shift + (len(iq) - doppler_burst), '.w')
-      else:
-          plt_o.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
+    if doppler_burst is not None:
+        pixel_shift = 0.5
+        if flip:
+            plt_o.plot(pixel_shift + np.arange(len(doppler_burst)),
+                       pixel_shift + (len(iq) - doppler_burst), '.w')
+        else:
+            plt_o.plot(pixel_shift + np.arange(len(doppler_burst)), pixel_shift + doppler_burst, '.w')
 
-  ax1 = plt.gca()
-  if val_overlay is not None:
-    for i,seg in enumerate(val_overlay):
-      if seg is None: 
-        continue
-      overlay_color = 'g' if seg==True else 'r'
-      x_pos = i*32
-      rect = patches.Rectangle((x_pos,0),31,127,linewidth=2,edgecolor=overlay_color,facecolor='none')
-      ax1.add_patch(rect)
+    ax1 = plt.gca()
+    if val_overlay is not None:
+        for i,seg in enumerate(val_overlay):
+            if seg is None: 
+                continue
+        overlay_color = 'g' if seg==True else 'r'
+        x_pos = i*32
+        rect = patches.Rectangle((x_pos,0),31,127,linewidth=2,edgecolor=overlay_color,facecolor='none')
+        ax1.add_patch(rect)
 
-  plt_o.imshow(iq, cmap=color_map)
+    plt_o.imshow(iq, cmap=color_map)
 
-  if save_path is not None:
-      plt_o.imsave(save_path, iq, cmap=color_map)
+    if save_path is not None:
+        plt_o.imsave(save_path, iq, cmap=color_map)
 
-  if title is not None:
-    if ax is None:
-      plt_o.title(title)
-    else:
-      plt_o.set_title(title)
+    if title is not None:
+        if ax is None:
+            plt_o.title(title)
+        else:
+            plt_o.set_title(title)
 
-  if ax is None: 
+    if ax is None: 
         if isinstance(label, str): plt_o.title(label)
         plt_o.show()
         plt_o.clf()
@@ -731,6 +737,7 @@ def data_preprocess(data):
 
 # Function for splitting the data to training and validation
 # and function for selecting samples of segments from the Auxiliary dataset
+
 def split_train_val(data,ratio=6):
   """
   Split the data to train and validation set.
@@ -776,6 +783,7 @@ def aux_split(data):
 
 # Function for calculating the final ROC-AUC score and plot the ROC curve,
 # used in the "Results" section
+
 def stats(pred, actual, mode="Validation"):
   """
   Computes the model ROC-AUC score and plots the ROC curve.
