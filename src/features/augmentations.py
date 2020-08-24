@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.ndimage.interpolation import rotate
-from src.utils import experiment_utils as utils
+from src.features import add_data, specto_feat
+from src.data import feat_data
 
 
 def rotate_iq(iq, theta):
@@ -36,7 +37,7 @@ def rotate_spectogram(data, segment_id, angle: int):
     segment_index = np.where(data['segment_id'] == segment_id)
     segment = data['iq_sweep_burst'][segment_index]
     segment = segment.reshape(segment.shape[1], -1)
-    spectogram = utils.calculate_spectrogram(segment)
+    spectogram = specto_feat.calculate_spectrogram(segment)
     return rotate(spectogram, angle=angle)
 
 
@@ -52,9 +53,9 @@ def rotate_track(data, track_id, angle: int):
     Returns:
     Rotated spectogram
     """
-    track, doppler = utils.concatenate_track(data, track_id)
-    assert utils.get_label(data, track_id) is not None, "No definitive label, can't rotate track"
-    spectogram = utils.calculate_spectrogram(track)
+    track, doppler = add_data.concatenate_track(data, track_id)
+    assert feat_data.get_label(data, track_id) is not None, "No definitive label, can't rotate track"
+    spectogram = specto_feat.calculate_spectrogram(track)
     return rotate(spectogram, angle=angle)
 
 def resplit_track_random(track, start=0, n_splits=5):
@@ -97,7 +98,6 @@ def split_rotation(data, track_id, angle: int, n_splits=5):
     assert rot_track.shape[1] >= 96, "Track is too short to re-split"
     start = rot_track.shape[1]//6
     return resplit_track_random(rot_track, start=start, n_splits=n_splits)
-    
 
 
 def vertical_flip(iq):
