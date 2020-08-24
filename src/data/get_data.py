@@ -1,31 +1,32 @@
-from src.utils import experiment_utils as utils
+import sys
+sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
+
+import numpy as np
+import os
+import pandas as pd
 from termcolor import colored
-import numpy as np
-import os
-import pandas as pd
-import numpy as np
-import os
-import pickle
-import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
-import itertools
-from matplotlib.colors import LinearSegmentedColormap
 import configparser
-import matplotlib.patches as patches
-import math
-from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
-from sklearn.manifold import TSNE
-from tensorflow.keras.models import Model
+import pickle
+from src.features import specto_feat
 
-### fetch the credentials ###
-creds_path = "credentials.ini"
-config_parser = configparser.ConfigParser()
-config_parser.read(creds_path)
+# import matplotlib.pyplot as plt
+# from sklearn.metrics import confusion_matrix
+# import itertools
+# from matplotlib.colors import LinearSegmentedColormap
+# import configparser
+# import matplotlib.patches as patches
+# import math
+# from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
+# from sklearn.manifold import TSNE
 
-PATH_ROOT = config_parser['MAIN']["PATH_ROOT"]
-PATH_DATA = config_parser['MAIN']["PATH_DATA"]
-#####
+# ### fetch the credentials ###
+# creds_path = "credentials.ini"
+# config_parser = configparser.ConfigParser()
+# config_parser.read(creds_path)
+
+# PATH_ROOT = config_parser['MAIN']["PATH_ROOT"]
+# PATH_DATA = config_parser['MAIN']["PATH_DATA"]
+# #####
 
 # The function append_dict is for concatenating the training set 
 # with the Auxiliary data set segments
@@ -357,45 +358,44 @@ def append_dict(dict1, dict2):
 
 def classic_trainval(PATH_DATA):
 
-    # Set and test path to competition data files
-    try:
-        if PATH_ROOT == 'INSERT HERE':
-            print('Please enter path to competition data files:')
-            PATH_ROOT = input()
-            PATH_DATA = input()
+  # Set and test path to competition data files
+  try:
+      if PATH_DATA == 'INSERT HERE':
+          print('Please enter path to competition data files:')
+          PATH_DATA = input()
 
-        file_path = 'MAFAT RADAR Challenge - Training Set V1.csv'
-        with open(f'{PATH_DATA}/{file_path}') as f:
-            f.readlines()
-        print(colored('Everything is setup correctly', color='green'))
-    except:
-        print(colored('Please mount drive and set competition_path correctly',
-                        color='red'))
+      file_path = 'MAFAT RADAR Challenge - Training Set V1.csv'
+      with open(f'{PATH_DATA}{file_path}') as f:
+        f.readlines()
+      print(colored('Everything is setup correctly', color='green'))
+  except:
+      print(colored('Please mount drive and set competition_path correctly',
+                      color='red'))
 
-    # Loading and preparing the data
-    # Loading Auxiliary Experiment set - can take a few minutes
-    experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
-    experiment_auxiliary_df = utils.load_data(experiment_auxiliary, PATH_DATA)
+  # Loading and preparing the data
+  # Loading Auxiliary Experiment set - can take a few minutes
+  experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
+  experiment_auxiliary_df = load_data(experiment_auxiliary, PATH_DATA)
 
-    train_aux = utils.aux_split(experiment_auxiliary_df)
+  train_aux = aux_split(experiment_auxiliary_df)
 
-    # Training set
-    train_path = 'MAFAT RADAR Challenge - Training Set V1'
-    training_df = utils.load_data(train_path, PATH_DATA)
+  # Training set
+  train_path = 'MAFAT RADAR Challenge - Training Set V1'
+  training_df = load_data(train_path, PATH_DATA)
 
-    # Adding segments from the experiment auxiliary set to the training set
-    train_df = append_dict(training_df, train_aux)
+  # Adding segments from the experiment auxiliary set to the training set
+  train_df = append_dict(training_df, train_aux)
 
-    # Preprocessing and split the data to training and validation
-    train_df = utils.data_preprocess(train_df.copy())
-    train_x, train_y, val_x, val_y, _ = utils.split_train_val(train_df)
+  # Preprocessing and split the data to training and validation
+  train_df = specto_feat.data_preprocess(train_df.copy())
+  train_x, train_y, val_x, val_y, _ = split_train_val(train_df)
 
-    val_y =  val_y.astype(int)
-    train_y =train_y.astype(int)
-    train_x = train_x.reshape(list(train_x.shape)+[1])
-    val_x = val_x.reshape(list(val_x.shape)+[1])
+  val_y =  val_y.astype(int)
+  train_y =train_y.astype(int)
+  train_x = train_x.reshape(list(train_x.shape)+[1])
+  val_x = val_x.reshape(list(val_x.shape)+[1])
 
-    return train_x, train_y, val_x, val_y
+  return train_x, train_y, val_x, val_y
 
 def splitArrayBy(idx,pattern):
   """
@@ -464,3 +464,8 @@ def aux_split(data):
   for key in data:
     data[key] = data[key][idx]
   return data
+
+
+if __name__ == "__main__":
+  print("hello world")
+  a,b,c,d = classic_trainval('/home/shaul/workspace/GitHub/sota-mafat-radar/data/')

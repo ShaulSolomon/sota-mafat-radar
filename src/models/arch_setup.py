@@ -3,8 +3,7 @@ import torch
 import numpy as np
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 import matplotlib.pyplot as plt
-from src.utils import experiment_utils 
-
+from src.visualization import metrics
 
 
 class DS(Dataset):
@@ -12,7 +11,10 @@ class DS(Dataset):
         super().__init__()
         self.df=df
         self.labels=labels
-        self.addit = np.array(addit)
+        if addit:
+            self.addit = np.array(addit)
+        else:
+            self.addit = None
 
 
     def __len__(self):
@@ -21,7 +23,7 @@ class DS(Dataset):
     def __getitem__(self, idx):
         data = self.df[idx]
         label = self.labels[idx]
-        if self.addit is not None:
+        if self.addit:
             addit = self.addit[idx]
             return [data,addit], label    
         return data,label
@@ -70,9 +72,7 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
 
             outputs = model(data)
             snr = None  #added
-            data, labels = batch
-            tr_labels = np.append(tr_labels,labels)
-            
+
             #added
             if isinstance(data, list):
               snr = data[1].to(device,dtype=torch.float32)
@@ -86,6 +86,7 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
               outputs = model(data,snr)
             else:
               outputs = model(data)
+
             labels = labels.view(-1,1)
             outputs = outputs.view(-1,1)
 
@@ -96,7 +97,10 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
             tr_loss+=loss.item()
             tr_size+=data.shape[0]
 
-            tr_y_hat = np.append(tr_y_hat,outputs.detach().cpu().numpy())
+            if torch.cuda.is_available():
+                tr_y_hat = np.append(tr_y_hat,outputs.detach().cpu().numpy())
+            else:
+                tr_y_hat = np.append(tr_y_hat,outputs.detach().numpy())
 
             optimizer.step()
             optimizer.zero_grad()
@@ -135,7 +139,10 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
             val_loss += loss.item()
             val_size += data.shape[0]
 
-            val_y_hat = np.append(val_y_hat,outputs.detach().cpu().numpy())
+            if torch.cuda.is_available():
+                val_y_hat = np.append(val_y_hat,outputs.detach().cpu().numpy())
+            else:
+                val_y_hat = np.append(val_y_hat,outputs.detach().numpy())
 
         tr_fpr, tr_tpr, _ = roc_curve(tr_labels, tr_y_hat)
         val_fpr, val_tpr, _ = roc_curve(val_labels, val_y_hat)
@@ -206,7 +213,7 @@ def plot_ROC_local_gpu(train_loader, val_loader, model,device):
 
     pred = [tr_y_hat,vl_y_hat]
     actual = [tr_y,vl_y]
-    experiment_utils.stats(pred, actual)
+    metrics.stats(pred, actual)
 
 
 def plot_ROC_cpu(train_x, val_x, train_y, val_y, model,device):
@@ -228,4 +235,4 @@ def plot_ROC_cpu(train_x, val_x, train_y, val_y, model,device):
     pred = [x1,x2]
 
     actual = [train_y, val_y]
-    experiment_utils.stats(pred, actual)
+    metrics.stats(pred, actual)

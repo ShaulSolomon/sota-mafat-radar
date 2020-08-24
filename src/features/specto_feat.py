@@ -11,7 +11,6 @@ import matplotlib.patches as patches
 import math
 from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
 from sklearn.manifold import TSNE
-from tensorflow.keras.models import Model
 
 def hann(iq, window=None):
   """
@@ -24,14 +23,14 @@ def hann(iq, window=None):
     Returns:
       Regularized iq shaped as (window[1] - window[0] - 2, iq.shape[1])
     """
-    if window is None:
-        window = [0, len(iq)]
+  if window is None:
+    window = [0, len(iq)]
 
-    N = window[1] - window[0] - 1
-    n = np.arange(window[0], window[1])
-    n = n.reshape(len(n), 1)
-    hannCol = 0.5 * (1 - np.cos(2 * np.pi * (n / N)))
-    return (hannCol * iq[window[0]:window[1]])[1:-1]
+  N = window[1] - window[0] - 1
+  n = np.arange(window[0], window[1])
+  n = n.reshape(len(n), 1)
+  hannCol = 0.5 * (1 - np.cos(2 * np.pi * (n / N)))
+  return (hannCol * iq[window[0]:window[1]])[1:-1]
 
 
 def calculate_spectrogram(iq_burst, axis=0, flip=True):
