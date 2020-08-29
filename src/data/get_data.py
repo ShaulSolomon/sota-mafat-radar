@@ -465,6 +465,16 @@ def aux_split(data):
     data[key] = data[key][idx]
   return data
 
+def pull_alldata_s3(AWS_ACCESS_KEY=AWS_ACCESS_KEY,AWS_ACCESS_SECRET_KEY=AWS_ACCESS_SECRET_KEY,bucket=BUCKET,PATH_ROOT = PATH_ROOT):
+    conn = S3Connection(AWS_ACCESS_KEY, AWS_ACCESS_SECRET_KEY)
+    conn.auth_region_name = 'us-east-1.amazonaws.com'
+    mybucket = conn.get_bucket(bucket)
+
+    for key_name in mybucket.list():
+        if (".csv" in str(key_name)) or (".pkl" in str(key_name)):
+            key = mybucket.get_key(key_name.key)
+            key.get_contents_to_filename(PATH_ROOT + '/data/' + key_name.name)
+
 
 if __name__ == "__main__":
   print("hello world")
