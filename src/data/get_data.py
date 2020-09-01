@@ -1,5 +1,5 @@
-import sys
-sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
+# import sys
+# sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
 
 import numpy as np
 import os

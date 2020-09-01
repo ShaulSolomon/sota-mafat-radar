@@ -1,5 +1,5 @@
-import sys
-sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
+# import sys
+# sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
 
 import numpy as np
 import os
@@ -42,9 +42,11 @@ def pipeline_trainval(PATH_DATA, config = {}):
     #split Tracks here to only do augmentation on Train set
     train_dict, val_dict = get_data.split_train_val_as_df(train_dict,ratio= val_ratio)
 
+
     ### ADD DATA (VIA AUGMENTATIONS)
 
     # Splitting the tracks into new segments
+
 
 
 
