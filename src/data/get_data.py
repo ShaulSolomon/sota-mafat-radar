@@ -451,20 +451,21 @@ def split_train_val(data,ratio=6):
   return training_x, training_y, validation_x, validation_y, idx
 
 
-def aux_split(data):
+def aux_split(data, numtracks=3):
   """
   Selects segments from the auxilary set for training set.
   Takes the first 3 segments (or less) from each track.
 
   Arguments:
     data {dataframe} -- the auxilary data
+    numtracks {int} -- number of segments to take from auxilary set tracks
 
   Returns:
     The auxilary data for the training
   """
   idx = np.bool_(np.zeros(len(data['track_id'])))
   for track in np.unique(data['track_id']):
-    idx |= data['segment_id']==(data['segment_id'][data['track_id'] == track][:3])
+    idx |= data['segment_id']==(data['segment_id'][data['track_id'] == track][:numtracks])
   
   for key in data:
     data[key] = data[key][idx]
@@ -479,6 +480,38 @@ def pull_alldata_s3(AWS_ACCESS_KEY,AWS_ACCESS_SECRET_KEY,bucket,PATH_ROOT):
         if (".csv" in str(key_name)) or (".pkl" in str(key_name)):
             key = mybucket.get_key(key_name.key)
             key.get_contents_to_filename(PATH_ROOT + '/data/' + key_name.name)
+
+
+def split_train_val_as_df(data,ratio=6):
+  """
+  Split the data to train and validation set.
+  The validation set is built from training set segments of 
+  geolocation_id 1 and 4. 
+  Use the function only after the training set is complete and preprocessed. 
+
+  Arguments:
+    data -- {dict} -- the data set to split
+    ratio -- {int} -- ratio to make the split by
+    #TODO: docstring update
+
+  Returns:
+    iq_sweep_burst ndarray matrices
+    target_type vector 
+    for training and validation sets
+  """
+  idx = ((data['geolocation_id'] == 4) | (data['geolocation_id'] == 1))\
+   & (data['segment_id'] % ratio == 0)
+
+
+  train_df = dict()
+  val_df = dict()
+  for column in data.keys():
+    train_dict[column] = data[column][np.logical_not(idx)]
+    val_dict[column] = data[column][idx]
+  return train_dict, val_dict
+
+
+
 
 
 if __name__ == "__main__":
