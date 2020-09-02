@@ -8,83 +8,106 @@ from termcolor import colored
 import configparser
 import pickle
 from src.data import get_data
+from src.features import augmentations
+from src.features import specto_feat
+from src.features import add_data
 
 def pipeline_trainval(PATH_DATA, config = {}):
-    '''
+  '''
+  arguments:
+      ...
+      config -- {dict}:
+          num_tracks -- {int} -- # of tracks to take from aux dataset
+          valratio -- {int} -- Ratio of train/val split
+          get_shifts -- {bool} -- Flag to add shifts
+          shift_segment -- {int} -- How much to shift tracks to generate new segments
+          get_horizontal_flip -- {bool} -- Flag to add horizontal flips
+          get_vertical_flip -- {bool} -- Flag to add vertical flips
 
-    arguments:
-        ...
-        config -- {dict}:
-            num_tracks -- {int} -- # of tracks to take from aux dataset
-            valratio -- {int} -- Ratio of train/val split
+  '''
 
-    '''
+  ### Default parameter
+  num_tracks = config.get('num_tracks',3)
+  val_ratio = config.get('val_ratio',6)
+  shift_segment = config.get('shift_segment',4)
+  get_shifts = config.get('get_shifts',True)
+  get_horizontal_flip = config.get('get_horizontal_flip',True)
+  get_vertical_flip = config.get('get_vertical_flip',True)
 
-    ### Default parameter
-    num_tracks = config.get('num_tracks',3)
-    val_ratio = config.get('val_ratio',6)
+  #TODO: Add logger for how much data we have (due to augmentations, etc.)
 
-    #TODO: Add logger for how much data we have (due to augmentations, etc.)
+  ##############################
+  #####  LOAD RAW DATA    ######
+  ##############################
 
-    ### LOAD RAW DATA
+  experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
+  experiment_auxiliary_df = get_data.load_data(experiment_auxiliary, PATH_DATA)
 
-    experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
-    experiment_auxiliary_df = get_data.load_data(experiment_auxiliary, PATH_DATA)
+  train_aux = get_data.aux_split(experiment_auxiliary_df, numtracks= num_tracks)
 
-    train_aux = get_data.aux_split(experiment_auxiliary_df, numtracks= num_tracks)
+  train_path = 'MAFAT RADAR Challenge - Training Set V1'
+  training_dict = get_data.load_data(train_path, PATH_DATA)
 
-    train_path = 'MAFAT RADAR Challenge - Training Set V1'
-    training_dict = get_data.load_data(train_path, PATH_DATA)
+  # Adding segments from the experiment auxiliary set to the training set
+  train_dict = get_data.append_dict(training_dict, train_aux)
 
-    # Adding segments from the experiment auxiliary set to the training set
-    train_dict = get_data.append_dict(training_dict, train_aux)
+  #split Tracks here to only do augmentation on Train set
+  train_dict, val_dict = get_data.split_train_val_as_df(train_dict,ratio= val_ratio)
 
-    #split Tracks here to only do augmentation on Train set
-    train_dict, val_dict = get_data.split_train_val_as_df(train_dict,ratio= val_ratio)
+  ###################################
+  ##  ADD DATA (VIA AUGMENTATIONS) ##
+  ###################################
 
+  # Splitting the tracks into new segments
 
-    ### ADD DATA (VIA AUGMENTATIONS)
+  if get_shifts:
 
-    # Splitting the tracks into new segments
+    train_df = train_dict.copy()
+    del train_df['doppler_burst']
+    del train_df['iq_sweep_burst']
+    train_df = pd.DataFrame(train_df)
 
+    new_segments_results = add_data.generate_shifts(train_df,train_dict,shift_by=shift_segment)
+    shifted_ds_dict = {k: [dic[k] for dic in new_segments_results] for k in new_segments_results[0]}
+    train_dict = get_data.append_dict(train_dict, shifted_ds_dict)
 
+  train_og = train_dict.copy()
 
+  if get_vertical_flip:
+    add_vertical = train_og.copy()
+    add_vertical['iq_sweep_burst'] = augmentations.vertical_flip(add_vertical['iq_sweep_burst'])
+    add_vertical['doppler_burst'] = 128 - add_vertical['doppler_burst']
+    train_dict = get_data.append_dict(train_dict, add_vertical)
 
+  if get_horizontal_flip:
+    add_horizontal = train_og.copy()
+    add_horizontal['iq_sweep_burst'] = augmentations.horizontal_flip(add_horizontal['iq_sweep_burst'])
+    add_horizontal['doppler_burst'] = np.flip(add_horizontal['doppler_burst'],axis=1)
+    train_dict = get_data.append_dict(train_dict, add_horizontal)
 
-    ### TRANSFORMATIONS / DATA ENGINEERING
+  ##########################################
+  ### TRANSFORMATIONS / DATA ENGINEERING ###
+  ##########################################
 
-    ### OPTIONALLY SPLITTING VAL INTO TEST
+  ### OPTIONALLY SPLITTING VAL INTO TEST
 
+  ###########################################
+  ###             X,y splits              ###
+  ###########################################
 
+  train_processed = specto_feat.data_preprocess(train_dict)
+  train_x = train_processed['iq_sweep_burst']
+  train_x = train_x.reshape(list(train_x.shape)+[1])
+  train_y = train_processed['target_type'].astype(int)
 
+  val_processed = specto_feat.data_preprocess(val_dict)
+  val_x =  val_processed['iq_sweep_burst']
+  val_x = val_x.reshape(list(val_x.shape)+[1])
+  val_y = val_processed['target_type'].astype(int)
 
-
-  # Preprocessing and split the data to training and validation
-
-
-#   train_df = specto_feat.data_preprocess(train_df.copy())
-#   train_x, train_y, val_x, val_y, _ = split_train_val(train_df)
-
-#   val_y =  val_y.astype(int)
-#   train_y =train_y.astype(int)
-#   train_x = train_x.reshape(list(train_x.shape)+[1])
-#   val_x = val_x.reshape(list(val_x.shape)+[1])
-
-#   return train_x, train_y, val_x, val_y
-
+  return train_x, train_y, val_x, val_y
 
 if __name__ == "__main__":
   print("hello world")
   a,b,c,d = pipeline_trainval('/home/shaul/workspace/GitHub/sota-mafat-radar/data/')
 
-
-
-
-'''
-
-def pipepine(*args):
-
-def pipeline(dict_params)
-
-
-'''
