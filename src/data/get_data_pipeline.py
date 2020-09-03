@@ -29,10 +29,10 @@ def pipeline_trainval(PATH_DATA, config = {}):
   ### Default parameter
   num_tracks = config.get('num_tracks',3)
   val_ratio = config.get('val_ratio',6)
-  shift_segment = config.get('shift_segment',[4,8,12,16,20,24,28])
-  get_shifts = config.get('get_shifts',True)
-  get_horizontal_flip = config.get('get_horizontal_flip',True)
-  get_vertical_flip = config.get('get_vertical_flip',True)
+  shift_segment = config.get('shift_segment',np.arange(1,31))
+  get_shifts = config.get('get_shifts',False)
+  get_horizontal_flip = config.get('get_horizontal_flip',False)
+  get_vertical_flip = config.get('get_vertical_flip',False)
 
   #TODO: Add logger for how much data we have (due to augmentations, etc.)
 

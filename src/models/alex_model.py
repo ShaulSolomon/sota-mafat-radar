@@ -40,7 +40,7 @@ class alex_mdf_model(nn.Module):
 
     def __init__(self):
         super(alex_mdf_model, self).__init__()
-        self.arch = alexnet(pretrained=True)
+        self.arch = alexnet(pretrained=False)
         self.arch.classifier[-1] = nn.Linear(4096,1)
 
         for i,layer in enumerate(self.arch.features.children()):
