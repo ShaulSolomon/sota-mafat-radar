@@ -15,7 +15,7 @@ from tensorflow.keras.models import Model
 
 from features.specto_feat import calculate_spectrogram
 
-def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
+def plot_spectrogram(iq, doppler_burst, color_map_name='parula',
                     color_map_path=None, save_path=None, flip=True, return_spec=False, 
                     figsize=None, label=None, ax=None, title=None,val_overlay=None,
                     theta=None):
@@ -54,7 +54,7 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
     else:
         color_map = plt.get_cmap(color_map_name)
 
-    iq = calculate_spectrogram(iq_burst, flip=flip)
+#     iq = calculate_spectrogram(iq_burst, flip=flip)
 #     if theta:
 #         iq = rotate_spectogram(iq, theta)
     if return_spec:
@@ -89,6 +89,7 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
     # plt_o.imshow(iq, cmap=color_map)
 
     if save_path is not None:
+        print('save_path: ', save_path)
         plt_o.imsave(save_path, iq, cmap=color_map)
 
     if title is not None:
