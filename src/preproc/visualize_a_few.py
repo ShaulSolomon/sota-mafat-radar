@@ -6,7 +6,9 @@ import shutil
 
 import numpy as np
 
-import utils.experiment_utils as eutils
+import features.specto_feat as specto_feat
+import visualization.specto_vis as specto_vis
+import data.get_data as get_data
 
 
 def get_args():
@@ -24,7 +26,7 @@ def get_args():
 
 
 def visualize_a_few(dataset_path, output_path, few):
-    data = eutils.load_data('train', dataset_path)
+    data = get_data.load_data('train', dataset_path)
     half = few // 2
     human_indices = np.where(data['target_type'] == 'human')[0]
     all_indices = set(range(len(data['segment_id'])))
@@ -43,12 +45,12 @@ def visualize_a_few(dataset_path, output_path, few):
         print('snr_type: {}\n'.format(data['snr_type'][sid]))
 
         print('len:', len(data['iq_sweep_burst'][sid]))
-        spectrogram = eutils.calculate_spectrogram(data['iq_sweep_burst'][sid])
-        eutils.plot_spectrogram(spectrogram, None,
-                                color_map_name='parula',
-                                color_map_path='/mafat/sota-mafat-radar/data/cmap.npy',
-                                save_path=os.path.join(output_path,
-                                    '{}_{}.png'.format(sid, data['target_type'][sid])))
+        spectrogram = specto_feat.calculate_spectrogram(data['iq_sweep_burst'][sid])
+        specto_vis.plot_spectrogram(spectrogram, None,
+                                    color_map_name='parula',
+                                    color_map_path='/home/dmk0v/projects/mafat/sota-mafat-radar/data/cmap.npy',
+                                    save_path=os.path.join(output_path,
+                                        '{}_{}.png'.format(sid, data['target_type'][sid])))
 
 
 if '__main__' == __name__:

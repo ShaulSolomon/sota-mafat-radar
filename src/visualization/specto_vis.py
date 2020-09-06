@@ -13,6 +13,7 @@ from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
 from sklearn.manifold import TSNE
 from tensorflow.keras.models import Model
 
+from features.specto_feat import calculate_spectrogram
 
 def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
                     color_map_path=None, save_path=None, flip=True, return_spec=False, 
@@ -85,7 +86,7 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
         rect = patches.Rectangle((x_pos,0),31,127,linewidth=2,edgecolor=overlay_color,facecolor='none')
         ax1.add_patch(rect)
 
-    plt_o.imshow(iq, cmap=color_map)
+    # plt_o.imshow(iq, cmap=color_map)
 
     if save_path is not None:
         plt_o.imsave(save_path, iq, cmap=color_map)
@@ -98,5 +99,5 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
 
     if ax is None: 
         if isinstance(label, str): plt_o.title(label)
-        plt_o.show()
-        plt_o.clf()
+        # plt_o.show()
+        # plt_o.clf()

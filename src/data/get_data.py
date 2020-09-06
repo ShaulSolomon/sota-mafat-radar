@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
+# sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
 
 import numpy as np
 import os
@@ -7,7 +7,7 @@ import pandas as pd
 from termcolor import colored
 import configparser
 import pickle
-from src.features import specto_feat
+from features import specto_feat
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from boto import s3
@@ -370,7 +370,7 @@ def classic_trainval(PATH_DATA):
           PATH_DATA = input()
 
       file_path = 'MAFAT RADAR Challenge - Training Set V1.csv'
-      with open(f'{PATH_DATA}{file_path}') as f:
+      with open('{}{}'.format(PATH_DATA, file_path)) as f:
         f.readlines()
       print(colored('Everything is setup correctly', color='green'))
   except:
