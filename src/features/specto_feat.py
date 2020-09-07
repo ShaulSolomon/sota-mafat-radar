@@ -11,6 +11,7 @@ import matplotlib.patches as patches
 import math
 from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
 from sklearn.manifold import TSNE
+import pywt
 
 def hann(iq, window=None):
   """
@@ -191,3 +192,43 @@ def data_preprocess(data):
     data['target_type'][data['target_type'] == 'animal'] = 0
     data['target_type'][data['target_type'] == 'human'] = 1
   return data
+
+
+def calculate_scalogram(iq_matrix, flip=True, transformation = 'cgau1'):
+    '''
+    calculate a scalogram matrix that preforms a continues wavelet transformation on the data.
+
+    Arguments:
+        iq_matrix (array-like): array of complex signal data, rows represent spatial location, columns time
+        flip (bool): optional argument for flipping the row order of the matrix.
+        transformation (string): name of wavelet signal to use as mother signal. default to gaussian kernel
+    return:
+        scalogram: array like transformation that correspond with correlation of different frequency wavelets at different time-points. 
+    
+    1. select each column of the IQ matrix
+    2. apply hann-window smoothing
+    3. preform Continues Wavelet Transformation (data, array of psooible scale values, type of transformation)
+    '''
+    from src.features import specto_feat
+
+    
+    scalograms = []
+    #analyze each column (time-point) seperatly
+    for j in range(iq_matrix.shape[1]):
+        # preform hann smoothing on a column - results in a singal j-2 sized column
+        # preform py.cwt transformation, returns coefficients and frequencies
+        coef, freqs=pywt.cwt(specto_feat.hann(iq_matrix[:, j][:, np.newaxis]), np.arange(1,8), transformation)
+        # coefficient matrix returns as a (num_scalers-1, j-2 , 1) array, transform it into a 2-d array
+        coef = coef[:,:,0]
+        if flip:
+            coef = np.flip(coef, axis=0)
+        # log normalization of the data
+        coef=np.log(np.abs(coef))
+        # first column correspond to the scales, rest is the coefficients
+        coef=coef[:, 1:]
+        coef=coef.T
+        scalograms.append(coef)
+
+    stacked_scalogram = np.hstack(scalograms)
+    stacked_scalogram = np.maximum(np.median(stacked_scalogram) - 1., stacked_scalogram)
+    return stacked_scalogram
