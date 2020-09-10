@@ -131,6 +131,7 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
               outputs = model(data,snr)
             else:
               outputs = model(data)
+
             labels = labels.view(-1,1)
             outputs = outputs.view(-1,1)
 
