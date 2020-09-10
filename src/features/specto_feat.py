@@ -13,6 +13,8 @@ from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
 from sklearn.manifold import TSNE
 import pywt
 
+from src.features import specto_feat
+
 def hann(iq, window=None):
   """
   Hann smoothing of 'iq_sweep_burst'.
@@ -167,7 +169,7 @@ def normalize(iq):
   return (iq-m)/s
 
 
-def data_preprocess(data):
+def data_preprocess(data,scalogram = False , flip = True, kernel = 'cgau1'):
   """
   Preforms data preprocessing.
   Change target_type lables from string to integer:
@@ -176,21 +178,29 @@ def data_preprocess(data):
 
   Arguments:
     data -- {ndarray} -- the data set
+    scalogram -- {bool} -- return scalogram and spectrogram data 
+    flip -- {bool} -- flip argument for scalogram
+    kernel -- {str} -- mother wavelet type for scalogram
 
   Returns:
-    processed data (max values by doppler burst, DFT, normalization)
+    processed data (max values by doppler burst, DFT, normalization, scalogram)
   """
   X=[]
+  scale = []
   for i in range(len(data['iq_sweep_burst'])):
     iq = fft(data['iq_sweep_burst'][i])
     iq = max_value_on_doppler(iq,data['doppler_burst'][i])
     iq = normalize(iq)
     X.append(iq)
+    scale.append(calculate_scalogram(data['iq_sweep_burst'][i], flip = flip, transformation= kernel))
 
   data['iq_sweep_burst'] = np.array(X)
+
   if 'target_type' in data:
     data['target_type'][data['target_type'] == 'animal'] = 0
     data['target_type'][data['target_type'] == 'human'] = 1
+  
+    data ['scalogram'] = np.array(scale)
   return data
 
 
@@ -230,5 +240,44 @@ def calculate_scalogram(iq_matrix, flip=True, transformation = 'cgau1'):
         scalograms.append(coef)
 
     stacked_scalogram = np.hstack(scalograms)
+    stacked_scalogram = np.maximum(np.median(stacked_scalogram) - 1., stacked_scalogram)
+    return stacked_scalogram
+
+    def calculate_scalogram(iq_matrix, flip=True, transformation = 'cgau1'):
+        '''
+    calculate a scalogram matrix that preforms a continues wavelet transformation on the data.
+
+    Arguments:
+        iq_matrix (array-like): array of complex signal data, rows represent spatial location, columns time
+        flip (bool): optional argument for flipping the row order of the matrix.
+        transformation (string): name of wavelet signal to use as mother signal. default to gaussian kernel
+    return:
+        scalogram: array like transformation that correspond with correlation of different frequency wavelets at different time-points. 
+    
+    1. select each column of the IQ matrix
+    2. apply hann-window smoothing
+    3. preform Continues Wavelet Transformation (data, array of psooible scale values, type of transformation)
+    '''
+    
+
+    
+    scalograms = []
+    #analyze each column (time-point) seperatly
+    for j in range(iq_matrix.shape[1]):
+        # preform hann smoothing on a column - results in a singal j-2 sized column
+        # preform py.cwt transformation, returns coefficients and frequencies
+        coef, freqs=pywt.cwt(specto_feat.hann(iq_matrix[:, j][:, np.newaxis]), np.arange(1,8), transformation)
+        # coefficient matrix returns as a (num_scalers-1, j-2 , 1) array, transform it into a 2-d array
+        #coef = coef[:,:,0]
+        if flip:
+            coef = np.flip(coef, axis=0)
+        # log normalization of the data
+        coef=np.log(np.abs(coef))
+        # first column correspond to the scales, rest is the coefficients
+        coef=coef[:, 1:,0]
+        coef=coef.T
+        scalograms.append(coef)
+
+    stacked_scalogram = np.stack(scalograms)
     stacked_scalogram = np.maximum(np.median(stacked_scalogram) - 1., stacked_scalogram)
     return stacked_scalogram
