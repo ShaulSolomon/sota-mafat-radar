@@ -216,7 +216,7 @@ def plot_ROC_local_gpu(train_loader, val_loader, model,device):
     metrics.stats(pred, actual)
 
 
-def plot_ROC_cpu(train_x, val_x, train_y, val_y, model,device):
+def plot_ROC(train_x, val_x, train_y, val_y, model,device):
     '''
     Outputs ROC plot as defined in utils.stats
 
