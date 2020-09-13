@@ -11,6 +11,10 @@ from src.data import get_data
 from src.features import augmentations
 from src.features import specto_feat
 from src.features import add_data
+import psutil
+
+import logging
+logger = logging.getLogger()
 
 def pipeline_trainval(PATH_DATA, config = {}):
   '''
@@ -42,8 +46,10 @@ def pipeline_trainval(PATH_DATA, config = {}):
 
   experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
   experiment_auxiliary_df = get_data.load_data(experiment_auxiliary, PATH_DATA)
+  logger.info(f"experiment_auxiliary:{experiment_auxiliary_df['date_index'].shape}")
 
   train_aux = get_data.aux_split(experiment_auxiliary_df, numtracks= num_tracks)
+  logger.info(f"train_aux:{train_aux['date_index'].shape}")
 
   train_path = 'MAFAT RADAR Challenge - Training Set V1'
   training_dict = get_data.load_data(train_path, PATH_DATA)
@@ -51,8 +57,16 @@ def pipeline_trainval(PATH_DATA, config = {}):
   # Adding segments from the experiment auxiliary set to the training set
   train_dict = get_data.append_dict(training_dict, train_aux)
 
+  # to free ram space
+  del experiment_auxiliary_df 
+
+  logger.info(f"training_dict({training_dict['date_index'].shape}) + aux dataset({train_aux['date_index'].shape}) = full train({train_dict['date_index'].shape})")
+
   #split Tracks here to only do augmentation on Train set
   train_dict, val_dict = get_data.split_train_val_as_df(train_dict,ratio= val_ratio)
+
+  logger.info(f"train only:{train_dict['iq_sweep_burst'].shape}.  val only:{val_dict['iq_sweep_burst'].shape}")
+
 
   ###################################
   ##  ADD DATA (VIA AUGMENTATIONS) ##
@@ -62,7 +76,11 @@ def pipeline_trainval(PATH_DATA, config = {}):
 
   if get_shifts:
 
+
+    logger.info(f"shifts. ram1:{psutil.virtual_memory().percent}")
     train_df = train_dict.copy()
+    logger.info(f"shifts. ram2:{psutil.virtual_memory().percent}")
+
     del train_df['doppler_burst']
     del train_df['iq_sweep_burst']
     train_df = pd.DataFrame(train_df)
@@ -71,16 +89,19 @@ def pipeline_trainval(PATH_DATA, config = {}):
     shifted_ds_dict = {k: [dic[k] for dic in new_segments_results] for k in new_segments_results[0]}
     train_dict = get_data.append_dict(train_dict, shifted_ds_dict)
 
-  train_og = train_dict.copy()
+    logger.handlers[0].flush()
+    logger.info(f"train only (after adding shifts):{train_dict['iq_sweep_burst'].shape[0]}.  val only:{val_dict['iq_sweep_burst'].shape[0]}")
+
+  #train_og = train_dict.copy()
 
   if get_vertical_flip:
-    add_vertical = train_og.copy()
+    add_vertical = {'iq_sweep_burst':None,'doppler_burst':None}
     add_vertical['iq_sweep_burst'] = augmentations.vertical_flip(add_vertical['iq_sweep_burst'])
     add_vertical['doppler_burst'] = 128 - add_vertical['doppler_burst']
     train_dict = get_data.append_dict(train_dict, add_vertical)
 
   if get_horizontal_flip:
-    add_horizontal = train_og.copy()
+    add_horizontal = {'iq_sweep_burst':None,'doppler_burst':None}
     add_horizontal['iq_sweep_burst'] = augmentations.horizontal_flip(add_horizontal['iq_sweep_burst'])
     add_horizontal['doppler_burst'] = np.flip(add_horizontal['doppler_burst'],axis=1)
     train_dict = get_data.append_dict(train_dict, add_horizontal)
