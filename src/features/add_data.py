@@ -2,16 +2,11 @@ import numpy as np
 import os
 import pickle
 import pandas as pd
-# import matplotlib.pyplot as plt
-# from sklearn.metrics import confusion_matrix
-# import itertools
-# from matplotlib.colors import LinearSegmentedColormap
-# import configparser
-# import matplotlib.patches as patches
-# import math
-# from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
-# from sklearn.manifold import TSNE
-# from tensorflow.keras.models import Model
+import psutil
+import sys
+
+import logging
+logger = logging.getLogger()
 
 
 def concatenate_track(data, track_id, snr_plot='both'):
@@ -66,7 +61,11 @@ def generate_shifts(data_df,data,shift_by=None):
 
   for shift_by_i in shift_by_list:
 
+    logger.info(f"shift:{shift_by_i}")
+
     for track_id_t in all_track_ids:
+
+      logger.info(f"track:{track_id_t} | ram:{psutil.virtual_memory().percent},{sys.getsizeof(new_segments_results)}")
 
       segment_idxs = list(data_df[data_df.track_id==track_id_t].index)
       segment_idxs = [(x,y) for x,y in zip(segment_idxs, segment_idxs[1:])]
@@ -75,6 +74,9 @@ def generate_shifts(data_df,data,shift_by=None):
 
       x_ind = -32
       for seg_id in segment_idxs:
+
+          logger.info(f"seg_id:{seg_id}")
+    
           x_ind = x_ind +32
           #print(data.iloc[seg_id])
 
@@ -101,9 +103,17 @@ def generate_shifts(data_df,data,shift_by=None):
               'date_index': data_df.iloc[seg_id[0]].date_index,
               'target_type': data_df.iloc[seg_id[0]].target_type,
               'is_validation': False,
+              'augmentation_info': {
+                'type':'shift',
+                'from_segments': seg_id
+              },
               'iq_sweep_burst': iq[:,new_seg_start:new_seg_start+32],
               'doppler_burst': burst[new_seg_start:new_seg_start+32], 
               'shift': shift_by_i
           })
+
+          logger.handlers[0].flush()
+
+  logger.info(f"num of segments added:{len(new_segments_results)}")
 
   return new_segments_results
