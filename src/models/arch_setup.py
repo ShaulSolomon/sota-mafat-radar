@@ -26,7 +26,18 @@ class DS(Dataset):
         return self.df.shape[0]+len(augmentation_df)
 
     def __getitem__(self, idx):
+
+        
+        if self.df[idx].iq_sweep_burst is not None:
+            iq = self.df[idx].iq_sweep_burst
+        else:
+            iq = generate from augmentations
+
+        do preprocess
+        do augmentations
+        
         data = self.df[idx]
+
         label = self.labels[idx]
         return data,label
 
