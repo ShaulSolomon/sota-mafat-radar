@@ -161,7 +161,7 @@ def generate_flips(full_data,mode=None):
 
   add_flips_dict = {
         'type':'flip',
-        'mode': 'vertical',
+        'mode': mode,
   }
 
   df.augmentation_info = df.apply(add_flip_augmentation,mydict=add_flips_dict, axis=1)
