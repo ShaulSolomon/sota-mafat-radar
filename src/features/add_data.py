@@ -137,10 +137,10 @@ def generate_shifts(full_data,shift_by=None):
   return full_data
 
 
-def add_augment_to_column(x,mydict):
-  mydict.from_segment = mydict.from_segment+x.segment_id
-  x.augmentation_info = x.augmentation_info + list([mydict])
-  return pd.Series(x.augmentation_info,dtype="object")
+def add_flip_augmentation(x,mydict):
+  mydict['from_segment'] = x.segment_id
+  x.augmentation_info = x.augmentation_info + [mydict]
+  return x.augmentation_info
 
 
 def generate_flips(full_data,mode=None):
@@ -162,12 +162,10 @@ def generate_flips(full_data,mode=None):
   add_flips_dict = {
         'type':'flip',
         'mode': 'vertical',
-        'from_segment': seg_id_start+1
   }
 
-  df.augmentation_info = df.apply(add_augment_to_column,mydict=add_flips_dict, axis=1)
-
-
+  df.augmentation_info = df.apply(add_flip_augmentation,mydict=add_flips_dict, axis=1)
+  df.segment_id = df.segment_id + seg_id_start +1
 
   return pd.concat([full_data, df], ignore_index=True)
 
