@@ -97,7 +97,10 @@ class DS(Dataset):
 
         label2model = 0 if data['target_type']=='animal' else 1
         data2model = data['iq_sweep_burst']
-        data2model = data2model.reshape(list(data2model.shape)+[1])
+
+        #print(f"data2model:{data2model.shape}")  # (1,132,28)
+        #data2model = data2model.reshape(list(data2model.shape)+[1])
+        data2model = np.expand_dims(data2model.squeeze(),axis=2)  # (132,28,1)
 
         return data2model, label2model
 
