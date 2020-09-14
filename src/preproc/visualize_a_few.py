@@ -10,7 +10,10 @@ import numpy as np
 import features.specto_feat as specto_feat
 import visualization.specto_vis as specto_vis
 import data.get_data as get_data
-
+from matplotlib.animation import PillowWriter
+import matplotlib.animation
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 
 def get_args():
    parser = argparse.ArgumentParser(description = 'Study a dataset')
@@ -25,6 +28,12 @@ def get_args():
    os.mkdir(args.output_path)
    return args
 
+class LoopingPillowWriter(PillowWriter):
+    def finish(self):
+        self._frames[0].save(
+            self._outfile, save_all=True, append_images=self._frames[1:],
+            duration=int(1000 / self.fps), loop=0)
+
 def calculate_scalogram(iq_matrix, flip=True):
     slow_time_scalograms = []
     for j in range(iq_matrix.shape[1]):
@@ -33,13 +42,13 @@ def calculate_scalogram(iq_matrix, flip=True):
         if flip:
             coef = np.flip(coef, axis=0)
         coef=np.log(np.abs(coef))
-        coef=coef[:, 1:-1]
+        #coef=coef[:, 1:-1]
         coef=coef.T
         slow_time_scalograms.append(coef)
 
-    stacked_scalogram = np.hstack(slow_time_scalograms)
+    stacked_scalogram = np.stack(slow_time_scalograms)
     stacked_scalogram = np.maximum(np.median(stacked_scalogram) - 1., stacked_scalogram)
-    return stacked_scalogram
+    return np.split(stacked_scalogram, stacked_scalogram.shape[0])
 
 def some_stats(report_name, data): 
     print('{} stats:'.format(report_name), np.min(data), np.mean(data), np.max(data))
@@ -74,9 +83,12 @@ def visualize_a_few(dataset_path, output_path, few):
         spectrogram = specto_feat.calculate_spectrogram(iq)
         print(spectrogram.shape)
         some_stats('spectrogram', spectrogram)
+        temp = np.zeros((126, 224))
+        temp[:, :] = np.min(spectrogram)
+        temp[:, :32] = spectrogram
+        spectrogram = temp 
 
         scalogram = calculate_scalogram(iq)
-        print(scalogram.shape)
         some_stats('scalogram', scalogram)
 
         specto_vis.plot_spectrogram(spectrogram, None,
@@ -84,10 +96,10 @@ def visualize_a_few(dataset_path, output_path, few):
                                     save_path=os.path.join(output_path,
                                     '{}_{}.png'.format(data['target_type'][sid], sid)))
 
-        specto_vis.plot_spectrogram(scalogram, None,
-                                    color_map_path=color_map_path,
-                                    save_path=os.path.join(output_path,
-                                    '{}_{}_scal.png'.format(data['target_type'][sid], sid)))
+        #specto_vis.plot_spectrogram(scalogram, None,
+        #                            color_map_path=color_map_path,
+        #                            save_path=os.path.join(output_path,
+        #                            '{}_{}_scal.png'.format(data['target_type'][sid], sid)))
 
         # specto_vis.plot_spectrogram(iq.real, None,
         #                             color_map_path=color_map_path,
@@ -97,6 +109,15 @@ def visualize_a_few(dataset_path, output_path, few):
         #                             color_map_path=color_map_path,
         #                             save_path=os.path.join(output_path,
         #                             '{}_{}_q.png'.format(data['target_type'][sid], sid)))
+        f = plt.figure()
+        color_map = LinearSegmentedColormap.from_list('parula', np.load(color_map_path))
+        scalogram_images = []
+        for stamp in scalogram:
+            im = plt.imshow(stamp[0, :, :], cmap=color_map)
+            scalogram_images.append([im])
+
+        ani = matplotlib.animation.ArtistAnimation(f, scalogram_images, interval=3.2, blit=True, repeat_delay=32)
+        ani.save(os.path.join(output_path,'{}_{}_scal.gif'.format(data['target_type'][sid], sid)), writer=LoopingPillowWriter(fps=3))
 
 
 if '__main__' == __name__:
