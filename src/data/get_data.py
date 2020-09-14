@@ -490,27 +490,18 @@ def split_train_val_as_df(data,ratio=6):
   Use the function only after the training set is complete and preprocessed. 
 
   Arguments:
-    data -- {dict} -- the data set to split
+    data -- {pandas} -- the data set to split as pandas dataframe
     ratio -- {int} -- ratio to make the split by
-    #TODO: docstring update
 
   Returns:
-    iq_sweep_burst ndarray matrices
-    target_type vector 
-    for training and validation sets
+    same dataset as input, with adding is_validation column
   """
-  idx = ((data['geolocation_id'] == 4) | (data['geolocation_id'] == 1))\
-   & (data['segment_id'] % ratio == 0)
+  
+  data['is_validation'] = (
+    (data['geolocation_id'] == 4) | (data['geolocation_id'] == 1)) & \
+      (data['segment_id'] % ratio == 0)
 
-  train_dict = dict()
-  val_dict = dict()
-  for column in data.keys():
-    train_dict[column] = data[column][np.logical_not(idx)]
-    val_dict[column] = data[column][idx]
-  return train_dict, val_dict
-
-
-
+  return data
 
 
 if __name__ == "__main__":

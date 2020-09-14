@@ -9,6 +9,16 @@ from src.visualization import metrics
 
 
 class DS(Dataset):
+    def __init__(self,df,labels, addit = None, augmentation_df = None):
+
+        """
+        Arguments:
+        df -- {ndarray} -- original data to be fed into the model (iq_matrix)
+        df_meta -- {pandas} -- the pandas dataframe with all the meta data. should be aligned with df
+        labels -- {list} -- the track_id number of the wanted segments
+        augmentation_df -- {dict} list of dictionaries.
+        """
+
     def __init__(self, df, labels, config, addit=None):
         super().__init__()
         self.df = df
@@ -40,7 +50,7 @@ class DS2(IterableDataset):
                  shift_segment -- {int} -- How much to shift tracks to generate new segments
                  get_horizontal_flip -- {bool} -- Flag to add horizontal flips
                  get_vertical_flip -- {bool} -- Flag to add vertical flips
-                 block_size -- {int} -- Max number of samples allowed to be held in a memory 
+                 block_size -- {int} -- Max number of samples allowed to be held in a memory
         '''
         super().__init__()
         self.df = df
@@ -57,7 +67,7 @@ class DS2(IterableDataset):
 def pretty_log(log):
     for key,value in log.items():
         value_s = value if type(value)=="int" else "{:.4f}".format(value)
-        print("{} : {}, ".format(key, value_s),end="")
+        print(f"{key} : {value_s}, ",end="")
     print("\n---------------------------\n")
 
 def thresh(output, thresh_hold = 0.5):
