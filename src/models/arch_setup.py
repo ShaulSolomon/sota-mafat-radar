@@ -9,7 +9,7 @@ from src.visualization import metrics
 
 
 class DS(Dataset):
-    def __init__(self,df,labels, addit = None, augmentation_df = None):
+    def __init__(self, data_dict, labels, addit=None, augmentation_df=None):
 
         """
         Arguments:
@@ -34,6 +34,9 @@ class DS(Dataset):
         pass
 
     def __getitem__(self, idx):
+        data = self.df[idx]
+        label = self.labels[idx]
+        return data, label
     # TODO implement creation of shifts and flips in this dataset, which will be used for DS2 class __iter__ method
         pass
 
