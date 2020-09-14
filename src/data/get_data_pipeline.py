@@ -38,8 +38,6 @@ def pipeline_trainval(PATH_DATA, config = {}):
   get_horizontal_flip = config.get('get_horizontal_flip',False)
   get_vertical_flip = config.get('get_vertical_flip',False)
 
-  #TODO: Add logger for how much data we have (due to augmentations, etc.)
-
   ##############################
   #####  LOAD RAW DATA    ######
   ##############################
@@ -57,54 +55,37 @@ def pipeline_trainval(PATH_DATA, config = {}):
   # Adding segments from the experiment auxiliary set to the training set
   train_dict = get_data.append_dict(training_dict, train_aux)
 
-  # to free ram space
-  del experiment_auxiliary_df 
-
   logger.info(f"training_dict({training_dict['date_index'].shape}) + aux dataset({train_aux['date_index'].shape}) = full train({train_dict['date_index'].shape})")
 
-  #split Tracks here to only do augmentation on Train set
-  train_dict, val_dict = get_data.split_train_val_as_df(train_dict,ratio= val_ratio)
+  full_data = pd.DataFrame.from_dict(train_dict,orient='index').transpose()
 
-  logger.info(f"train only:{train_dict['iq_sweep_burst'].shape}.  val only:{val_dict['iq_sweep_burst'].shape}")
+  #split Tracks here to only do augmentation on train set
+  full_data = get_data.split_train_val_as_df(full_data, ratio=val_ratio)
+
+  logger.info(f"train only:{len(full_data[full_data.is_validation == False])}.  val only:{len(full_data[full_data.is_validation == True])}")
+
+  # to free ram space
+  del experiment_auxiliary_df 
+  del train_aux
+  del training_dict
+  del train_dict
 
 
   ###################################
   ##  ADD DATA (VIA AUGMENTATIONS) ##
   ###################################
 
-  # Splitting the tracks into new segments
+  full_data['augmentation_info']=[]
 
   if get_shifts:
-
-
-    logger.info(f"shifts. ram1:{psutil.virtual_memory().percent}")
-    train_df = train_dict.copy()
-    logger.info(f"shifts. ram2:{psutil.virtual_memory().percent}")
-
-    del train_df['doppler_burst']
-    del train_df['iq_sweep_burst']
-    train_df = pd.DataFrame(train_df)
-
-    new_segments_results = add_data.generate_shifts(train_df,train_dict,shift_by=shift_segment)
-    shifted_ds_dict = {k: [dic[k] for dic in new_segments_results] for k in new_segments_results[0]}
-    train_dict = get_data.append_dict(train_dict, shifted_ds_dict)
-
-    logger.handlers[0].flush()
-    logger.info(f"train only (after adding shifts):{train_dict['iq_sweep_burst'].shape[0]}.  val only:{val_dict['iq_sweep_burst'].shape[0]}")
-
-  #train_og = train_dict.copy()
+    full_data = add_data.generate_shifts(full_data,shift_by=shift_segment)
 
   if get_vertical_flip:
-    add_vertical = {'iq_sweep_burst':None,'doppler_burst':None}
-    add_vertical['iq_sweep_burst'] = augmentations.vertical_flip(add_vertical['iq_sweep_burst'])
-    add_vertical['doppler_burst'] = 128 - add_vertical['doppler_burst']
-    train_dict = get_data.append_dict(train_dict, add_vertical)
+    full_data = add_data.generate_flips(full_data,type='vertical')
 
   if get_horizontal_flip:
-    add_horizontal = {'iq_sweep_burst':None,'doppler_burst':None}
-    add_horizontal['iq_sweep_burst'] = augmentations.horizontal_flip(add_horizontal['iq_sweep_burst'])
-    add_horizontal['doppler_burst'] = np.flip(add_horizontal['doppler_burst'],axis=1)
-    train_dict = get_data.append_dict(train_dict, add_horizontal)
+    full_data = add_data.generate_flips(full_data,type='horizontal')
+
 
   ##########################################
   ### TRANSFORMATIONS / DATA ENGINEERING ###

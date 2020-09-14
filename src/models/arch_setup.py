@@ -7,25 +7,27 @@ from src.visualization import metrics
 
 
 class DS(Dataset):
-    def __init__(self,df,labels, addit = None):
+    def __init__(self,df,labels, addit = None, augmentation_df = None):
+
+        """
+        Arguments:
+        df -- {ndarray} -- original data to be fed into the model (iq_matrix)
+        df_meta -- {pandas} -- the pandas dataframe with all the meta data. should be aligned with df
+        labels -- {list} -- the track_id number of the wanted segments
+        augmentation_df -- {dict} list of dictionaries. 
+        """
+
         super().__init__()
         self.df=df
         self.labels=labels
-        if addit:
-            self.addit = np.array(addit)
-        else:
-            self.addit = None
-
+        self.augmentation_df=augmentation_df
 
     def __len__(self):
-        return self.df.shape[0]
+        return self.df.shape[0]+len(augmentation_df)
 
     def __getitem__(self, idx):
         data = self.df[idx]
         label = self.labels[idx]
-        if self.addit:
-            addit = self.addit[idx]
-            return [data,addit], label    
         return data,label
 
 def pretty_log(log):
@@ -37,12 +39,12 @@ def pretty_log(log):
 def thresh(output, thresh_hold = 0.5):
     return [0 if x <thresh_hold else 1 for x in output]
 
-
 def accuracy_calc(outputs, labels):
     #print("acc1:",outputs, labels)
     preds = thresh(outputs)
     #print("acc2:",preds)
     return np.sum(preds == labels) / len(preds)
+
 
 def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, device,train_y,val_y,log=None,WANDB_enable = False,wandb=None):
 
