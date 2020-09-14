@@ -4,42 +4,103 @@ import numpy as np
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 import matplotlib.pyplot as plt
 from src.visualization import metrics
+from src.features import specto_feat
 
 
 class DS(Dataset):
-    def __init__(self,df,labels, addit = None, augmentation_df = None):
-
+    def __init__(self,df):
         """
         Arguments:
-        df -- {ndarray} -- original data to be fed into the model (iq_matrix)
-        df_meta -- {pandas} -- the pandas dataframe with all the meta data. should be aligned with df
-        labels -- {list} -- the track_id number of the wanted segments
-        augmentation_df -- {dict} list of dictionaries. 
+        df -- {dataframe} -- data. expected columns: target_type (labels), doppler_burst, iq_sweep_burst, augmentation_info
+
+        index is expected to be in ascending order, but it might contain holes!
+        index should be the same as segment_id.
+        this is important when locating the segment of the augmentations.
         """
 
         super().__init__()
         self.df=df
-        self.labels=labels
-        self.augmentation_df=augmentation_df
 
     def __len__(self):
-        return self.df.shape[0]+len(augmentation_df)
+        return len(self.df)
 
     def __getitem__(self, idx):
 
-        
-        if self.df[idx].iq_sweep_burst is not None:
-            iq = self.df[idx].iq_sweep_burst
-        else:
-            iq = generate from augmentations
+        data_inner = self.df.iloc[idx].copy()  # use iloc here because must get absolute row position
 
-        do preprocess
-        do augmentations
-        
-        data = self.df[idx]
+        if data_inner.iq_sweep_burst is None:
 
-        label = self.labels[idx]
-        return data,label
+            iq_matrix = None
+            doppler_vector = None
+
+            for augment_info in data_inner.augmentation_info:
+
+                #print(f"augment_info:{augment_info}")
+
+                if augment_info['type']=='shift':
+
+                    #print(f"shift")
+
+                    iq_list = []
+                    dopller_list = []
+                    from_segments = augment_info['from_segments']
+                    shift_by = augment_info['shift']
+
+                    for i in from_segments:
+                        iq_list.append(self.df.loc[i]['iq_sweep_burst'])     # use loc here because we need the actual segment id (by index)
+                        dopller_list.append(self.df.loc[i]['doppler_burst'])
+
+                    #print(f"iq_list:{iq_list},dopller_list:{dopller_list}. shape:{iq_list[0].shape}. len:{len(iq_list)}")
+
+                    iq_matrix = np.concatenate(iq_list, axis=1)  # 2*(128,32) => (128,64)
+                    doppler_vector = np.concatenate(dopller_list, axis=0)  # 2*(32,1) => (64,1)
+
+                    # cut the iq_matrix according to the shift
+                    iq_matrix = iq_matrix[:,shift_by:shift_by+32]
+                    doppler_vector = doppler_vector[shift_by:shift_by+32]
+
+                if iq_matrix is None and augment_info['type']=='flip':
+
+                    #print(f"flip")
+
+                    from_segment = augment_info['from_segment']
+
+                    iq_matrix = self.df[from_segment].iq_sweep_burst
+                    doppler_vector = self.df[from_segment].doppler_vector
+
+                #print(f"iq_matrix:{iq_matrix},doppler_vector:{doppler_vector}")
+
+            data_inner.iq_sweep_burst = iq_matrix
+            data_inner.doppler_burst = doppler_vector
+
+
+        #print(f"data_inner:{data_inner}")
+
+        # convert to structure supported by preprocess method
+        data_inner_o = {k:[v] for (k,v) in data_inner.to_dict().items()}
+
+        # do preprocess
+        data = specto_feat.data_preprocess(data_inner_o)
+
+        # augementations
+        # do flips (if needed)
+        for augment_info in data['augmentation_info'][0]: # the [0] is because we added [] in the data_inner_o
+            #print(f"augment_info:{augment_info}")
+            if augment_info['type']=='flip':
+                if augment_info['mode']=='veritcal':
+                    data['iq_sweep_burst'] = np.flip(data_inner.iq_sweep_burst,0)
+                    data['doppler_burst'] = np.abs(128-data_inner.doppler_burst)
+
+                if augment_info['mode']=='horizontal':
+                    data['iq_sweep_burst'] = np.flip(data_inner.iq_sweep_burst,1)
+                    data['doppler_burst'] = np.flip(data_inner.doppler_burst,1)
+
+        label2model = 0 if data['target_type']=='animal' else 1
+        data2model = data['iq_sweep_burst']
+        data2model = data2model.reshape(list(data2model.shape)+[1])
+
+        return data2model, label2model
+
 
 def pretty_log(log):
     for key,value in log.items():
@@ -93,7 +154,7 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
 
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
-            
+
             # added
             if snr:
               outputs = model(data,snr)
@@ -176,7 +237,7 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         if WANDB_enable == True:
             wandb.log(epoch_log)
 
-    return training_log   
+    return training_log
 
 
 def plot_loss_train_test(logs,model):
@@ -206,7 +267,7 @@ def plot_ROC_local_gpu(train_loader, val_loader, model,device):
     Arguments:
         train_loader -- {DataLoader} -- has train data stored in batches defined in notebook
         val_loader -- {DataLoader} -- has val data stored in batches defined in notebook
-        model -- {nn.Module} -- pytorch model 
+        model -- {nn.Module} -- pytorch model
         device -- {torch.device} -- cpu/cuda
 
     '''
@@ -238,7 +299,7 @@ def plot_ROC(train_x, val_x, train_y, val_y, model,device):
         val_x -- {np.array} --  val data
         train_y -- {np.array} -- train labels
         val_y -- {np.array} -- val labels
-        model -- {nn.Module} -- pytorch model 
+        model -- {nn.Module} -- pytorch model
         device -- {torch.device} -- cpu/cuda
 
     '''
