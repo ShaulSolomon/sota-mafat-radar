@@ -12,8 +12,8 @@ import math
 from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
 from sklearn.manifold import TSNE
 import pywt
+import tqdm
 
-from src.features import specto_feat
 
 def hann(iq, window=None):
   """
@@ -169,7 +169,7 @@ def normalize(iq):
   return (iq-m)/s
 
 
-def data_preprocess(data,scalogram = False , flip = True, kernel = 'cgau1'):
+def data_preprocess(data, df_type = 'spectrogram' , flip = True, kernel = 'cgau1'):
   """
   Preforms data preprocessing.
   Change target_type lables from string to integer:
@@ -178,7 +178,7 @@ def data_preprocess(data,scalogram = False , flip = True, kernel = 'cgau1'):
 
   Arguments:
     data -- {ndarray} -- the data set
-    scalogram -- {bool} -- return scalogram and spectrogram data 
+    df_type -- {bool} -- type of processing procedure for the data, either wavelets scalogram, or spectrogram 
     flip -- {bool} -- flip argument for scalogram
     kernel -- {str} -- mother wavelet type for scalogram
 
@@ -186,21 +186,24 @@ def data_preprocess(data,scalogram = False , flip = True, kernel = 'cgau1'):
     processed data (max values by doppler burst, DFT, normalization, scalogram)
   """
   X=[]
-  scale = []
+  if df_type == 'scalogram':
+    pbar = tqdm.tqdm(total = len(data['iq_sweep_burst']), position = 0, leave = True)
   for i in range(len(data['iq_sweep_burst'])):
     iq = fft(data['iq_sweep_burst'][i])
     iq = max_value_on_doppler(iq,data['doppler_burst'][i])
     iq = normalize(iq)
-    X.append(iq)
-    scale.append(calculate_scalogram(data['iq_sweep_burst'][i], flip = flip, transformation= kernel))
-
+    if df_type == 'scalogram':
+      X.append(calculate_scalogram(iq, flip = flip, transformation= kernel))
+      pbar.update()
+    else:
+      X.append(iq)
+  if df_type == 'scalogram':
+    pbar.close()
   data['iq_sweep_burst'] = np.array(X)
 
   if 'target_type' in data:
     data['target_type'][data['target_type'] == 'animal'] = 0
     data['target_type'][data['target_type'] == 'human'] = 1
-  
-    data ['scalogram'] = np.array(scale)
   return data
 
 
@@ -227,7 +230,7 @@ def calculate_scalogram(iq_matrix, flip=True, transformation = 'cgau1'):
     for j in range(iq_matrix.shape[1]):
         # preform hann smoothing on a column - results in a singal j-2 sized column
         # preform py.cwt transformation, returns coefficients and frequencies
-        coef, freqs=pywt.cwt(specto_feat.hann(iq_matrix[:, j][:, np.newaxis]), np.arange(1,8), transformation)
+        coef, freqs=pywt.cwt(hann(iq_matrix[:, j][:, np.newaxis]), np.arange(1,8), transformation)
         # coefficient matrix returns as a (num_scalers-1, j-2 , 1) array, transform it into a 2-d array
 
         if flip:
