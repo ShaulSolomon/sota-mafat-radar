@@ -269,7 +269,7 @@ def calculate_scalogram_2d(iq_matrix, flip=True, transformation = 'cgau1'):
   for j in range(iq_matrix.shape[1]):
       # preform hann smoothing on a column - results in a singal j-2 sized column
       # preform py.cwt transformation, returns coefficients and frequencies
-      coef, freqs=pywt.cwt(specto_feat.hann(iq_matrix[:, j][:, np.newaxis]), np.arange(1,8), transformation)
+      coef, freqs=pywt.cwt(hann(iq_matrix[:, j][:, np.newaxis]), np.arange(1,8), transformation)
       # coefficient matrix returns as a (num_scalers-1, j-2 , 1) array, transform it into a 2-d array
       #coef = coef[:,:,0]
       if flip:
