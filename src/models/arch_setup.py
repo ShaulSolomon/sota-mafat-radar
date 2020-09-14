@@ -7,28 +7,28 @@ from src.visualization import metrics
 
 
 class DS(Dataset):
-    def __init__(self,df,labels, addit = None, augmentation_df = None):
+    def __init__(self, data_dict, labels, addit=None, augmentation_df=None):
 
         """
         Arguments:
-        df -- {ndarray} -- original data to be fed into the model (iq_matrix)
+        data_dict -- {dict} -- original data to be fed into the model (iq_matrix)
         df_meta -- {pandas} -- the pandas dataframe with all the meta data. should be aligned with df
         labels -- {list} -- the track_id number of the wanted segments
         augmentation_df -- {dict} list of dictionaries. 
         """
 
         super().__init__()
-        self.df=df
-        self.labels=labels
-        self.augmentation_df=augmentation_df
+        self.data_dict = data_dict
+        self.labels = labels
+        self.augmentation_df = augmentation_df
 
     def __len__(self):
-        return self.df.shape[0]+len(augmentation_df)
+        return self.df.shape[0]+len(self.augmentation_df)
 
     def __getitem__(self, idx):
         data = self.df[idx]
         label = self.labels[idx]
-        return data,label
+        return data, label
 
 def pretty_log(log):
     for key,value in log.items():
