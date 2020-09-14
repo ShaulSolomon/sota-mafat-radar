@@ -220,7 +220,6 @@ def calculate_scalogram(iq_matrix, flip=True, transformation = 'cgau1'):
     2. apply hann-window smoothing
     3. preform Continues Wavelet Transformation (data, array of psooible scale values, type of transformation)
     '''
-    from src.features import specto_feat
 
     
     scalograms = []
