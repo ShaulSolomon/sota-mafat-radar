@@ -1,7 +1,9 @@
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, IterableDataset, DataLoader
 import torch
 import numpy as np
 from sklearn.metrics import roc_auc_score, roc_curve, auc
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from src.visualization import metrics
 
@@ -17,21 +19,35 @@ class DS(Dataset):
             self.addit = None
 
 
-    def __len__(self):
-        return self.df.shape[0]
+class DS2(IterableDataset):
+    def __init__(self, df, labels, config):
+        '''
+             arguments:
+             ...
+             config -- {dict}:
+                 num_tracks -- {int} -- # of tracks to take from aux dataset
+                 valratio -- {int} -- Ratio of train/val split
+                 get_shifts -- {bool} -- Flag to add shifts
+                 shift_segment -- {int} -- How much to shift tracks to generate new segments
+                 get_horizontal_flip -- {bool} -- Flag to add horizontal flips
+                 get_vertical_flip -- {bool} -- Flag to add vertical flips
+                 block_size -- {int} -- Max number of samples allowed to be held in a memory 
+        '''
+        super().__init__()
+        self.df=df
+        self.labels=labels
+        self.config=config
 
-    def __getitem__(self, idx):
-        data = self.df[idx]
-        label = self.labels[idx]
-        if self.addit:
-            addit = self.addit[idx]
-            return [data,addit], label    
-        return data,label
+
+    def __iter__(self):
+        assert False
+
+
 
 def pretty_log(log):
     for key,value in log.items():
         value_s = value if type(value)=="int" else "{:.4f}".format(value)
-        print(f"{key} : {value_s}, ",end="")
+        print("{} : {}, ".format(key, value_s),end="")
     print("\n---------------------------\n")
 
 def thresh(output, thresh_hold = 0.5):
