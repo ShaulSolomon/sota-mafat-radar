@@ -4,13 +4,14 @@ import pickle
 import pandas as pd
 import psutil
 import sys
+from src.data.feat_data import has_single_snr_type
 
 import logging
 
 logger = logging.getLogger()
 
 
-def concatenate_track(data, track_id, snr_plot='both'):
+def concatenate_track(data, track_id, snr_plot='both', return_indices=False):
     """Concatenate segments with same track id
     
     Arguments:
@@ -23,15 +24,15 @@ def concatenate_track(data, track_id, snr_plot='both'):
     Concatenated I/Q matrix and concatenated doppler burst vector
     """
     iq_list = []
-    dopller_list = []
+    doppler_list = []
 
-    if type(data) is dict:
+    if isinstance(data, dict):
         track_indices = np.where(data['track_id'] == track_id)
         if (snr_plot != 'both') and (not has_single_snr_type(data, track_id, False)):
             track_indices = np.where((data['track_id'] == track_id) & (data['snr_type'] == snr_plot))
         track_indices = list(track_indices[0])
 
-    else:
+    elif isinstance(data, pd.DataFrame):
         if (snr_plot != 'both'):
             track_indices = list(data[(data['track_id'] == track_id) & (data['snr_type'] == snr_plot)].index)
         else:
@@ -42,25 +43,39 @@ def concatenate_track(data, track_id, snr_plot='both'):
     for i in track_indices:
         if data['iq_sweep_burst'][i] is not None:
             iq_list.append(data['iq_sweep_burst'][i])
-            dopller_list.append(data['doppler_burst'][i])
+            doppler_list.append(data['doppler_burst'][i])
 
     # print(f"iq_list:{iq_list}. shape:{iq_list[0].shape}. len:{len(iq_list)}")
 
     iq_matrix = np.stack(iq_list, axis=0)
-    doppler_vector = np.stack(dopller_list, axis=0)
+    doppler_vector = np.stack(doppler_list, axis=0)
+    if return_indices:
+        return iq_matrix, doppler_vector, track_indices
+    else:
+        return iq_matrix, doppler_vector
 
-    return iq_matrix, doppler_vector
-
-
-def generate_shifts(full_data, shift_by=None):
+def shifts_from_track(data, shift_by=None):
     """
-  generate shifts from the data. 
-  Arguments:
-    full_data -- {dataframe} -- dataframe with all data, including  parameters for each segment (geo type+id, snr etc)
-    shift_by -- (int/array) Validation / Test (used in syntehtic test)
-  Returns:
-    dataframe same as input, with appended rows of the shifts appended at the end. column 'augmentation_info' has the
-    instrunctions on how to create the augmentation
+        generate shifts from one track.
+        Arguments:
+            data -- {dataframe} -- dataframe N number of tracks, including parameters for each segment (geo type+id, snr etc)
+            shift_by -- (int/array) Validation / Test (used in syntehtic test)
+        Returns:
+            dataframe same as input, with appended rows of the shifts appended at the end. column 'augmentation_info' has the
+            instrunctions on how to create the augmentation
+      """
+    pass
+    shift_by_list = np.arange(0, 31, shift_by).tolist()
+
+def generate_shifts(full_data, shift_by: int = 1):
+    """
+    generate shifts from the data.
+    Arguments:
+        full_data -- {dataframe} -- dataframe with all data, including  parameters for each segment (geo type+id, snr etc)
+        shift_by -- (int/array) Validation / Test (used in syntehtic test)
+    Returns:
+        dataframe same as input, with appended rows of the shifts appended at the end. column 'augmentation_info' has the
+        instrunctions on how to create the augmentation
   """
     new_segments_results = []
     count = 0

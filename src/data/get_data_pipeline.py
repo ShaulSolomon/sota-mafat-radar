@@ -1,6 +1,6 @@
 # import sys
 # sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
-
+import random
 import numpy as np
 import os
 import pandas as pd
@@ -18,19 +18,17 @@ import logging
 logger = logging.getLogger()
 
 
-def load_all_datasets(PATH_DATA: str, config: dict = dict()) -> dict:
-    '''
-    arguments:
-        ...
-        config -- {dict}:
-            num_tracks -- {int} -- # of tracks to take from aux dataset
-            valratio -- {int} -- Ratio of train/val split
-            get_shifts -- {bool} -- Flag to add shifts
-            shift_segment -- {int} -- How much to shift tracks to generate new segments
-            get_horizontal_flip -- {bool} -- Flag to add horizontal flips
-            get_vertical_flip -- {bool} -- Flag to add vertical flips
+def load_all_datasets(PATH_DATA: str, config: dict = None) -> dict:
+    """Load all datasets into one dictionary file
 
-    '''
+        Arguments:
+            PATH_DATA -- {str}: path to the data directory, comes from credentials.ini file
+            config -- {dict}:
+                num_tracks -- {int} -- # of tracks to take from aux dataset
+
+        Returns:
+        Concatenated I/Q matrix and concatenated doppler burst vector
+    """
 
     ### Default parameter
     num_tracks = config.get('num_tracks', 3)
@@ -57,6 +55,73 @@ def load_all_datasets(PATH_DATA: str, config: dict = dict()) -> dict:
     return train_dict
 
 
+def get_track_level_data(data_dict: dict) -> pd.DataFrame:
+    """Transform a dictionary of segment-level datasets into a track-level dataframe
+
+            Arguments:
+                data_dict -- {str}: path to the data directory, comes from credentials.ini file
+                config -- {dict}:
+                    num_tracks -- {int} -- # of tracks to take from aux dataset
+
+            Returns:
+            Concatenated I/Q matrix and concatenated doppler burst vector
+            """
+    columns = ['geolocation_type', 'geolocation_id', 'sensor_id', 'snr_type', 'date_index', 'target_type']
+    all_track_ids = data_dict['track_id'].unique()
+    df = pd.DataFrame.from_dict(data_dict, orient='index').transpose()
+    tracks = []
+    for track_id in all_track_ids:
+        iq, burst, track_indices = add_data.concatenate_track(data_dict, track_id, snr_plot='both')
+        segments = df[df.track_id == track_id].copy()
+        segment_idxs = segments.index.tolist()
+        segment_idxs = [(x, y) for x, y in zip(segment_idxs, segment_idxs[1:])]
+        validation_list = []
+        for seg_id in segment_idxs:
+
+            logger.info(f"seg_id:{seg_id}")
+
+            usable = True
+            for col in columns:
+                if df.iloc[seg_id[0]][col] != df.iloc[seg_id[1]][col]:
+                    # print(f"{seg_id[0]},{seg_id[1]}: diff {col}. skip")
+                    usable = False
+
+            if df.iloc[seg_id[0]].is_validation or df.iloc[seg_id[1]].is_validation:
+                    # print(f"{seg_id[0]},{seg_id[1]}: is_validation. skip")
+                usable = False
+            validation_list.append(usable)
+        segments['usable'] = validation_list
+        track_df = segments[columns + ['usable']].groupby('track_id').agg(list)
+        track_df['iq_sweep_burst'] = iq
+        track_df['doppler_burst'] = burst
+        tracks.append(track_df)
+    return pd.concat(tracks)
+
+def sample_track_subset(track_df: pd.DataFrame, k=10) -> pd.DataFrame:
+
+    sub_indices = random.sample(track_df.index.tolist(), k=k)
+    subset = track_df[track_df.index.isin(sub_indices)].copy()
+    return subset
+    # This could be irrelevant since we'll get an error if k > number of tracks
+
+
+def create_segment_pool(data, config):
+
+    # TODO iterate over each track and create augmentations.
+    # TODO return randomly shuffled list of segments from a minimum of k tracks
+    pass
+
+
+def yield_segments_from_pool(segment_pool, batch_size: int):
+    # TODO create generator function that yields blocks of a fixed size from the segment pool
+    pass
+
+
+def refill_segment_pool(unused_tracks):
+
+    pass
+
+
 def pipeline_trainval(PATH_DATA, config={}):
     """
     arguments:
@@ -68,7 +133,6 @@ def pipeline_trainval(PATH_DATA, config={}):
         shift_segment -- {int} -- How much to shift tracks to generate new segments
         get_horizontal_flip -- {bool} -- Flag to add horizontal flips
         get_vertical_flip -- {bool} -- Flag to add vertical flips
-
     """
 
     ### Default parameter
