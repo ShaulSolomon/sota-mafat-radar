@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 import matplotlib.pyplot as plt
 from src.visualization import metrics
+from tqdm import tqdm
 
 
 class DS(Dataset):
@@ -62,6 +63,8 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         tr_labels = np.array([])
 
         #train loop
+        pbar = tqdm(total=len(tr_loader),position=0,leave=True)
+
         for step,batch in enumerate(tr_loader):
 
             data, labels = batch
@@ -78,9 +81,6 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
               snr = data[1].to(device,dtype=torch.float32)
               data = data[0]
 
-            data = data.to(device,dtype=torch.float32)
-            labels = labels.to(device,dtype=torch.float32)
-            
             # added
             if snr:
               outputs = model(data,snr)
@@ -108,6 +108,8 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
+            pbar.update()
+
         val_loss = 0
         val_size = 0
         val_y_hat = np.array([])
@@ -122,11 +124,12 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
             outputs = model(data)
+
             if isinstance(data, list):
               snr = data[1].to(device,dtype=torch.float32)
               data = data[0]
-            data = data.to(device,dtype=torch.float32)
-            labels = labels.to(device,dtype=torch.float32)
+
+
             if snr is not None:
               outputs = model(data,snr)
             else:
