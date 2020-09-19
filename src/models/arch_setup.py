@@ -152,10 +152,10 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         val_fpr, val_tpr, _ = roc_curve(val_labels, val_y_hat)
 
         epoch_log = {'epoch': epoch+1,
-                     'loss': tr_loss ,
+                     'loss': tr_loss / tr_size,
                      'auc': auc(tr_fpr, tr_tpr),
                      'acc': accuracy_calc(tr_y_hat,tr_labels),
-                     'val_loss': val_loss ,
+                     'val_loss': val_loss / val_size,
                      'val_auc': auc(val_fpr,val_tpr),
                      'val_acc': accuracy_calc(val_y_hat,val_labels)}
 
@@ -233,8 +233,8 @@ def plot_ROC(train_x, val_x, train_y, val_y, model,device):
         device -- {torch.device} -- cpu/cuda
 
     '''
-    x1 = thresh(model(torch.from_numpy(train_x).to(device).type(torch.float32)).detach().cpu())
-    x2 = thresh(model(torch.from_numpy(val_x).to(device).type(torch.float32)).detach().cpu())
+    x1 = model(torch.from_numpy(train_x).to(device).type(torch.float32)).detach().cpu()
+    x2 = model(torch.from_numpy(val_x).to(device).type(torch.float32)).detach().cpu()
 
     pred = [x1,x2]
 
