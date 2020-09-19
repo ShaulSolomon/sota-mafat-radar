@@ -9,14 +9,23 @@ from src.visualization import metrics
 
 
 class DS(Dataset):
-    def __init__(self,df,labels, addit = None):
+    def __init__(self, df, labels, config, addit=None):
         super().__init__()
-        self.df=df
-        self.labels=labels
+        self.df = df
+        self.labels = labels
+        self.config = config
         if addit:
             self.addit = np.array(addit)
         else:
             self.addit = None
+
+    def __len__(self):
+    # TODO implement len of this dataset
+        pass
+
+    def __getitem__(self, idx):
+    # TODO implement creation of shifts and flips in this dataset, which will be used for DS2 class __iter__ method
+        pass
 
 
 class DS2(IterableDataset):
@@ -34,12 +43,13 @@ class DS2(IterableDataset):
                  block_size -- {int} -- Max number of samples allowed to be held in a memory 
         '''
         super().__init__()
-        self.df=df
-        self.labels=labels
-        self.config=config
+        self.df = df
+        self.labels = labels
+        self.config = config
 
 
     def __iter__(self):
+        # TODO implement function that takes a track and turns it into it's own DS dataset
         assert False
 
 
