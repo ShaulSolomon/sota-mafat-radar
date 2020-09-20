@@ -1,52 +1,121 @@
+from itertools import chain
 from torch.utils.data import Dataset, IterableDataset, DataLoader
 import torch
 import numpy as np
 import pandas as pd
+import random
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from src.visualization import metrics
+from src.features.augmentations import resplit_track_fixed, resplit_burst_fixed, vertical_flip, horizontal_flip
+matplotlib.use('Agg')
 
 
-class DS(Dataset):
-    def __init__(self, data_dict, labels, addit=None, augmentation_df=None):
+def tracks_generator(data: dict, config: dict) -> dict:
+    """
+        Arguments:
+            data -- {dict} -- data for one track with parameters: ['segment_id', 'geolocation_type', 'geolocation_id',
+                                                                   'sensor_id', 'snr_type',
+                                                                   'date_index', 'iq_sweep_burst', 'doppler_burst',
+                                                                   'target_type', 'usable']
+            config -- {dict}:
+                 get_shifts -- {bool} -- Flag to add shifts
+                 shift_segment -- {int} -- How much to shift tracks to generate new segments
+                 get_horizontal_flip -- {bool} -- Flag to add horizontal flips
+                 get_vertical_flip -- {bool} -- Flag to add vertical flips
+                 block_size -- {int} -- Max number of samples allowed to be held in a memory
+    """
+    track = data['iq_sweep_burst']
+    burst = data['doppler_burst']
+    shift_segment = config.get('shift_segment', 1)
+    previous_i = 0
+    previous_usable = False
+    tracks = []
+    bursts = []
+    labels = []
+    for i, use in enumerate(data['usable']):
+        if not use:
+            if previous_usable:
+                if i - previous_i > 0:
+                    start = (previous_i+1) * 32
+                    end = i * 32
+                    tracks.append(track[:, start:end])
+                    bursts.append(burst[start:end])
+                    labels.append(data['target_type'][i])
+                    previous_usable = False
+                    previous_i = i
+            previous_i = i
+        else:
+            previous_usable = True
 
+
+
+    new_segments = []
+    new_bursts = []
+    new_labels = []
+    for i, track in enumerate(tracks):
+        if track.shape[1] > 32:
+            if config.get('get_shifts'):
+                track = resplit_track_fixed(track=track, shift_segment=shift_segment)
+                burst = resplit_burst_fixed(burst=bursts[i], shift_segment=shift_segment)
+                new_segments.extend(track)
+                new_bursts.extend(burst)
+            else:
+                track = resplit_track_fixed(track=track, shift_segment=32)
+                burst = resplit_burst_fixed(burst=bursts[i], shift_segment=32)
+                new_segments.extend(track)
+                new_bursts.extend(burst)
+            new_labels.extend([labels[i]] * len(burst))
+        else:
+            new_segments.extend(track)
+            new_bursts.extend(bursts[i])
+            new_labels.append(labels[i])
+    flipped_segments = []
+    flipped_bursts = []
+    flipped_labels = []
+    if config.get('get_horizontal_flip'):
+        for i, segment in enumerate(new_segments):
+            vertical_segments = [vertical_flip(seg) for seg in segment]
+            flipped_segments.extend(vertical_segments)
+            vertical_bursts = [1 - burst for burst in new_bursts[i]]
+            flipped_bursts.extend(vertical_bursts)
+            flipped_labels.append(new_labels[i])
+    if config.get('get_vertical_flip'):
+        for segment in new_segments:
+            horizontal_segments = [horizontal_flip(seg) for seg in segment]
+            flipped_segments.extend(horizontal_segments)
+            horizontal_bursts = [burst.reverse() for burst in new_bursts[i]]
+            flipped_bursts.extend(horizontal_bursts)
+            flipped_labels.append(new_labels[i])
+    data = {'segments': new_segments + flipped_segments, 'doppler_bursts': new_bursts + flipped_bursts,
+            'labels': new_labels + flipped_labels}
+    return data
+
+
+class TrackDS(Dataset):
+    """Dataset for a batch of segments from one track."""
+
+    def __init__(self, data_dict):
         """
         Arguments:
-        df -- {ndarray} -- original data to be fed into the model (iq_matrix)
-        df_meta -- {pandas} -- the pandas dataframe with all the meta data. should be aligned with df
-        labels -- {list} -- the track_id number of the wanted segments
-        augmentation_df -- {dict} list of dictionaries.
+            data -- {dict} -- data for 
         """
-
-    def __init__(self, data: dict, labels: dict, config: dict, addit=None):
-        super().__init__()
-        self.data = data
-        self.labels = labels
-        self.config = config
-        if addit:
-            self.addit = np.array(addit)
-        else:
-            self.addit = None
+        self.data = data_dict
 
     def __len__(self):
-    # TODO implement len of this dataset
-        pass
+        return len(self.data)
 
     def __getitem__(self, idx):
-        data = self.df.iloc[idx]
-        label = self.labels[idx]
-        return data, label
-    # TODO implement creation of shifts and flips on the fly in dataset, which will be used for DS2 class __iter__ method
-        pass
+        return self.data[idx]
 
 
 class DS2(IterableDataset):
-    def __init__(self, df, labels, config):
-        '''
+    def __init__(self, data_records: dict, config: dict):
+        """
              arguments:
              ...
+             data_records -- {dict}: dictionary containing records of all concatenated tracks indexed by track_id
              config -- {dict}:
                  num_tracks -- {int} -- # of tracks to take from aux dataset
                  valratio -- {int} -- Ratio of train/val split
@@ -55,37 +124,56 @@ class DS2(IterableDataset):
                  get_horizontal_flip -- {bool} -- Flag to add horizontal flips
                  get_vertical_flip -- {bool} -- Flag to add vertical flips
                  block_size -- {int} -- Max number of samples allowed to be held in a memory
-        '''
+        """
         super().__init__()
-        self.df = df
-        self.labels = labels
+        self.data = data_records
         self.config = config
+        self.random_index = list(self.data.keys())
+        random.shuffle(self.random_index)
 
+    def process_data(self) -> list:
+        block_size = self.config.get('block_size')
+        loaders = []
+        for track in self.random_index:
+            data_dict = pd.DataFrame(tracks_generator(self.data[track], self.config)).to_dict(orient='index')
+            data = TrackDS(data_dict)
+            loaders.append(DataLoader(data, batch_size=block_size, shuffle=True))
+        return loaders
+
+    # @classmethod
+    # def split_data_into_tracks(cls, data, block_size=50, max_workers=2):
+    #
+    #     for n in range(max_workers, 0, -1):
+    #         if block_size % n == 0:
+    #             num_workers = n
+    #             break
+    #     split_size = block_size // num_workers
+    #     return [cls(data, config={}) for _ in range(num_workers)]
 
     def __iter__(self):
-        # TODO implement function that takes a track and turns it into it's own DS dataset
-        assert False
-
+        return chain.from_iterable(self.process_data())
 
 
 def pretty_log(log):
-    for key,value in log.items():
-        value_s = value if type(value)=="int" else "{:.4f}".format(value)
-        print(f"{key} : {value_s}, ",end="")
+    for key, value in log.items():
+        value_s = value if type(value) == "int" else "{:.4f}".format(value)
+        print(f"{key} : {value_s}, ", end="")
     print("\n---------------------------\n")
 
-def thresh(output, thresh_hold = 0.5):
-    return [0 if x <thresh_hold else 1 for x in output]
+
+def thresh(output, thresh_hold=0.5):
+    return [0 if x < thresh_hold else 1 for x in output]
 
 
 def accuracy_calc(outputs, labels):
-    #print("acc1:",outputs, labels)
+    # print("acc1:",outputs, labels)
     preds = thresh(outputs)
-    #print("acc2:",preds)
+    # print("acc2:",preds)
     return np.sum(preds == labels) / len(preds)
 
-def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, device,train_y,val_y,log=None,WANDB_enable = False,wandb=None):
 
+def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs, device, train_y, val_y, log=None,
+                 WANDB_enable=False, wandb=None):
     # If we want to run more epochs, want to keep the same log of the old model
     if log:
         training_log = log
@@ -94,53 +182,52 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
 
     for epoch in range(num_epochs):
 
-        print("started training epoch no. {}".format(epoch+1))
+        print("started training epoch no. {}".format(epoch + 1))
 
         tr_loss = 0
         tr_size = 0
         tr_y_hat = np.array([])
         tr_labels = np.array([])
 
-        #train loop
-        for step,batch in enumerate(tr_loader):
+        # train loop
+        for step, batch in enumerate(tr_loader):
 
             data, labels = batch
-            tr_labels = np.append(tr_labels,labels)
+            tr_labels = np.append(tr_labels, labels)
 
-            data = data.to(device,dtype=torch.float32)
-            labels = labels.to(device,dtype=torch.float32)
+            data = data.to(device, dtype=torch.float32)
+            labels = labels.to(device, dtype=torch.float32)
 
             outputs = model(data)
-            snr = None  #added
+            snr = None  # added
 
-            #added
+            # added
             if isinstance(data, list):
-              snr = data[1].to(device,dtype=torch.float32)
-              data = data[0]
+                snr = data[1].to(device, dtype=torch.float32)
+                data = data[0]
 
-            data = data.to(device,dtype=torch.float32)
-            labels = labels.to(device,dtype=torch.float32)
-            
+            data = data.to(device, dtype=torch.float32)
+            labels = labels.to(device, dtype=torch.float32)
+
             # added
             if snr:
-              outputs = model(data,snr)
+                outputs = model(data, snr)
             else:
-              outputs = model(data)
+                outputs = model(data)
 
-            labels = labels.view(-1,1)
-            outputs = outputs.view(-1,1)
+            labels = labels.view(-1, 1)
+            outputs = outputs.view(-1, 1)
 
-            loss = criterion(outputs,labels)
+            loss = criterion(outputs, labels)
             loss.backward()
 
-
-            tr_loss+=loss.item()
-            tr_size+=data.shape[0]
+            tr_loss += loss.item()
+            tr_size += data.shape[0]
 
             if torch.cuda.is_available():
-                tr_y_hat = np.append(tr_y_hat,outputs.detach().cpu().numpy())
+                tr_y_hat = np.append(tr_y_hat, outputs.detach().cpu().numpy())
             else:
-                tr_y_hat = np.append(tr_y_hat,outputs.detach().numpy())
+                tr_y_hat = np.append(tr_y_hat, outputs.detach().numpy())
 
             optimizer.step()
             optimizer.zero_grad()
@@ -153,48 +240,47 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         val_y_hat = np.array([])
         val_labels = np.array([])
 
-        #validation loop
+        # validation loop
         for step, batch in enumerate(val_loader):
 
             data, labels = batch
-            val_labels = np.append(val_labels,labels)
+            val_labels = np.append(val_labels, labels)
 
-            data = data.to(device,dtype=torch.float32)
-            labels = labels.to(device,dtype=torch.float32)
+            data = data.to(device, dtype=torch.float32)
+            labels = labels.to(device, dtype=torch.float32)
             outputs = model(data)
             if isinstance(data, list):
-              snr = data[1].to(device,dtype=torch.float32)
-              data = data[0]
-            data = data.to(device,dtype=torch.float32)
-            labels = labels.to(device,dtype=torch.float32)
+                snr = data[1].to(device, dtype=torch.float32)
+                data = data[0]
+            data = data.to(device, dtype=torch.float32)
+            labels = labels.to(device, dtype=torch.float32)
             if snr is not None:
-              outputs = model(data,snr)
+                outputs = model(data, snr)
             else:
-              outputs = model(data)
-            labels = labels.view(-1,1)
-            outputs = outputs.view(-1,1)
+                outputs = model(data)
+            labels = labels.view(-1, 1)
+            outputs = outputs.view(-1, 1)
 
-            loss = criterion(outputs,labels)
+            loss = criterion(outputs, labels)
 
             val_loss += loss.item()
             val_size += data.shape[0]
 
             if torch.cuda.is_available():
-                val_y_hat = np.append(val_y_hat,outputs.detach().cpu().numpy())
+                val_y_hat = np.append(val_y_hat, outputs.detach().cpu().numpy())
             else:
-                val_y_hat = np.append(val_y_hat,outputs.detach().numpy())
+                val_y_hat = np.append(val_y_hat, outputs.detach().numpy())
 
         tr_fpr, tr_tpr, _ = roc_curve(tr_labels, tr_y_hat)
         val_fpr, val_tpr, _ = roc_curve(val_labels, val_y_hat)
 
-        epoch_log = {'epoch': epoch+1,
-                     'loss': tr_loss ,
+        epoch_log = {'epoch': epoch + 1,
+                     'loss': tr_loss,
                      'auc': auc(tr_fpr, tr_tpr),
-                     'acc': accuracy_calc(tr_y_hat,tr_labels),
-                     'val_loss': val_loss ,
-                     'val_auc': auc(val_fpr,val_tpr),
-                     'val_acc': accuracy_calc(val_y_hat,val_labels)}
-
+                     'acc': accuracy_calc(tr_y_hat, tr_labels),
+                     'val_loss': val_loss,
+                     'val_auc': auc(val_fpr, val_tpr),
+                     'val_acc': accuracy_calc(val_y_hat, val_labels)}
 
         pretty_log(epoch_log)
 
@@ -203,28 +289,28 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         if WANDB_enable == True:
             wandb.log(epoch_log)
 
-    return training_log   
+    return training_log
 
 
-def plot_loss_train_test(logs,model):
+def plot_loss_train_test(logs, model):
     tr_loss = []
     val_loss = []
     for epoch_log in logs:
         tr_loss.append(epoch_log['loss'])
         val_loss.append(epoch_log['val_loss'])
 
-    plt.figure(figsize=(12,8))
+    plt.figure(figsize=(12, 8))
     plt.title(model._get_name())
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
-    plt.plot(range(len(tr_loss)),tr_loss,label="Train");
-    plt.plot(range(len(val_loss)),val_loss,label="Val");
+    plt.plot(range(len(tr_loss)), tr_loss, label="Train");
+    plt.plot(range(len(val_loss)), val_loss, label="Val");
     plt.legend()
     plt.tight_layout()
     plt.show();
 
 
-def plot_ROC_local_gpu(train_loader, val_loader, model,device):
+def plot_ROC_local_gpu(train_loader, val_loader, model, device):
     '''
     Working on a local GPU, there is limited space and therefore a need to run the ROC examples in batches.
 
@@ -242,21 +328,20 @@ def plot_ROC_local_gpu(train_loader, val_loader, model,device):
     vl_y = np.array([])
     vl_y_hat = np.array([])
 
-    for data,label in train_loader:
-        tr_y_hat = np.append(tr_y_hat,np.array(thresh(model(data.to(device).type(torch.float32)).detach().cpu())))
+    for data, label in train_loader:
+        tr_y_hat = np.append(tr_y_hat, np.array(thresh(model(data.to(device).type(torch.float32)).detach().cpu())))
         tr_y = np.append(tr_y, np.array(label.detach().cpu()))
 
-    for data,label in val_loader:
+    for data, label in val_loader:
         vl_y_hat = np.append(vl_y_hat, np.array(thresh(model(data.to(device).type(torch.float32)).detach().cpu())))
-        vl_y = np.append(vl_y,np.array(label.detach().cpu()))
+        vl_y = np.append(vl_y, np.array(label.detach().cpu()))
 
-
-    pred = [tr_y_hat,vl_y_hat]
-    actual = [tr_y,vl_y]
+    pred = [tr_y_hat, vl_y_hat]
+    actual = [tr_y, vl_y]
     metrics.stats(pred, actual)
 
 
-def plot_ROC(train_x, val_x, train_y, val_y, model,device):
+def plot_ROC(train_x, val_x, train_y, val_y, model, device):
     '''
     Outputs ROC plot as defined in utils.stats
 
@@ -272,7 +357,7 @@ def plot_ROC(train_x, val_x, train_y, val_y, model,device):
     x1 = thresh(model(torch.from_numpy(train_x).to(device).type(torch.float32)).detach().cpu())
     x2 = thresh(model(torch.from_numpy(val_x).to(device).type(torch.float32)).detach().cpu())
 
-    pred = [x1,x2]
+    pred = [x1, x2]
 
     actual = [train_y, val_y]
     metrics.stats(pred, actual)

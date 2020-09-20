@@ -47,8 +47,8 @@ def concatenate_track(data, track_id, snr_plot='both', return_indices=False):
 
     # print(f"iq_list:{iq_list}. shape:{iq_list[0].shape}. len:{len(iq_list)}")
 
-    iq_matrix = np.stack(iq_list, axis=0)
-    doppler_vector = np.stack(doppler_list, axis=0)
+    iq_matrix = np.concatenate(iq_list, axis=-1)
+    doppler_vector = np.concatenate(doppler_list, axis=-1)
     if return_indices:
         return iq_matrix, doppler_vector, track_indices
     else:
