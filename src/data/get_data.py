@@ -361,8 +361,16 @@ def append_dict(dict1, dict2):
     dict1[key] = np.concatenate([dict1[key], dict2[key]], axis=0)
   return dict1
 
-def classic_trainval(PATH_DATA):
+def classic_trainval(PATH_DATA, df_type = 'spectrogram'):
+  """
+  Reads csv as pandas DataFrame (only Metadata).
 
+  Arguments:
+    PATH_DATA -- {str} -- path to dataset
+    df type -- {bool} -- train data type, either spectrogram (iq_matrix) or scalogram (3d wavelets) 
+
+
+  """
   # Set and test path to competition data files
   try:
       if PATH_DATA == 'INSERT HERE':
@@ -392,7 +400,7 @@ def classic_trainval(PATH_DATA):
   train_df = append_dict(training_df, train_aux)
 
   # Preprocessing and split the data to training and validation
-  train_df = specto_feat.data_preprocess(train_df.copy())
+  train_df = specto_feat.data_preprocess(train_df.copy(),df_type = df_type)
   train_x, train_y, val_x, val_y, _ = split_train_val(train_df)
 
   val_y =  val_y.astype(int)
