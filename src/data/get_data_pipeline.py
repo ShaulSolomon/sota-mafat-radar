@@ -55,7 +55,7 @@ def load_all_datasets(PATH_DATA: str, config: dict = None) -> dict:
     return train_dict
 
 
-def get_track_level_data(data_dict: dict) -> pd.DataFrame:
+def get_track_level_data(data_dict: dict) -> dict:
     """Transform a dictionary of segment-level datasets into a track-level dataframe
 
             Arguments:
@@ -69,7 +69,7 @@ def get_track_level_data(data_dict: dict) -> pd.DataFrame:
     columns = ['geolocation_type', 'geolocation_id', 'sensor_id', 'snr_type', 'date_index', 'target_type']
     all_track_ids = np.unique(data_dict['track_id'])
     df = pd.DataFrame.from_dict(data_dict, orient='index').transpose()
-    tracks = []
+    tracks = {}
     for track_id in all_track_ids:
         iq, burst = add_data.concatenate_track(data_dict, track_id, snr_plot='both')
         segments = df[df.track_id == track_id].copy()
@@ -93,10 +93,10 @@ def get_track_level_data(data_dict: dict) -> pd.DataFrame:
             validation_list.append(usable)
         segments['usable'] = validation_list + [False]
         track_df = segments[columns + ['usable', 'track_id']].groupby('track_id').agg(list)
-        track = track_df.to_dict(orient='index')
-        track[track_id]["iq_sweep_burst"] = iq
-        track[track_id]["doppler_burst"] = burst
-        tracks.append(track)
+        track = track_df.to_dict(orient='index')[track_id]
+        track["iq_sweep_burst"] = iq
+        track["doppler_burst"] = burst
+        tracks[track_id] = track
     return tracks
 
 def sample_track_subset(track_df: pd.DataFrame, k=10) -> pd.DataFrame:
