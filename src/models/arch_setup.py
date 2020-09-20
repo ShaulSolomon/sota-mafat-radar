@@ -1,6 +1,7 @@
 from torch.utils.data import Dataset, IterableDataset, DataLoader
 import torch
 import numpy as np
+import pandas as pd
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 import matplotlib
 matplotlib.use('Agg')
@@ -19,9 +20,9 @@ class DS(Dataset):
         augmentation_df -- {dict} list of dictionaries.
         """
 
-    def __init__(self, df, labels, config, addit=None):
+    def __init__(self, data: dict, labels: dict, config: dict, addit=None):
         super().__init__()
-        self.df = df
+        self.data = data
         self.labels = labels
         self.config = config
         if addit:
@@ -34,10 +35,10 @@ class DS(Dataset):
         pass
 
     def __getitem__(self, idx):
-        data = self.df[idx]
+        data = self.df.iloc[idx]
         label = self.labels[idx]
         return data, label
-    # TODO implement creation of shifts and flips in this dataset, which will be used for DS2 class __iter__ method
+    # TODO implement creation of shifts and flips on the fly in dataset, which will be used for DS2 class __iter__ method
         pass
 
 

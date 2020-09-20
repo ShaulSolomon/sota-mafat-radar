@@ -67,11 +67,11 @@ def get_track_level_data(data_dict: dict) -> pd.DataFrame:
             Concatenated I/Q matrix and concatenated doppler burst vector
             """
     columns = ['geolocation_type', 'geolocation_id', 'sensor_id', 'snr_type', 'date_index', 'target_type']
-    all_track_ids = data_dict['track_id'].unique()
+    all_track_ids = np.unique(data_dict['track_id'])
     df = pd.DataFrame.from_dict(data_dict, orient='index').transpose()
     tracks = []
     for track_id in all_track_ids:
-        iq, burst, track_indices = add_data.concatenate_track(data_dict, track_id, snr_plot='both')
+        iq, burst = add_data.concatenate_track(data_dict, track_id, snr_plot='both')
         segments = df[df.track_id == track_id].copy()
         segment_idxs = segments.index.tolist()
         segment_idxs = [(x, y) for x, y in zip(segment_idxs, segment_idxs[1:])]
@@ -85,17 +85,19 @@ def get_track_level_data(data_dict: dict) -> pd.DataFrame:
                 if df.iloc[seg_id[0]][col] != df.iloc[seg_id[1]][col]:
                     # print(f"{seg_id[0]},{seg_id[1]}: diff {col}. skip")
                     usable = False
+                    break
 
             if df.iloc[seg_id[0]].is_validation or df.iloc[seg_id[1]].is_validation:
                     # print(f"{seg_id[0]},{seg_id[1]}: is_validation. skip")
                 usable = False
             validation_list.append(usable)
-        segments['usable'] = validation_list
-        track_df = segments[columns + ['usable']].groupby('track_id').agg(list)
-        track_df['iq_sweep_burst'] = iq
-        track_df['doppler_burst'] = burst
-        tracks.append(track_df)
-    return pd.concat(tracks)
+        segments['usable'] = validation_list + [False]
+        track_df = segments[columns + ['usable', 'track_id']].groupby('track_id').agg(list)
+        track = track_df.to_dict(orient='index')
+        track["iq_sweep_burst"] = iq
+        track["doppler_burst"] = burst
+        tracks.append(track)
+    return tracks
 
 def sample_track_subset(track_df: pd.DataFrame, k=10) -> pd.DataFrame:
 
