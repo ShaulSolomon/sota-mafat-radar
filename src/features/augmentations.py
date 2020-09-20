@@ -63,20 +63,39 @@ def resplit_track_random(track, start=0, n_splits=5):
     Randomly splits a track into n new segments.
 
     Arguments:
-    track -- {ndarray} -- spectogram created from IQ matrix
+    track -- {ndarray} -- spectogram created from IQ matrix, dimensions (>32, 128)
     start -- {int} -- the starting point of range of possible starting indices for new segments (Default=0)
     n_splits -- {int} number of new segments to create (Default=5)
 
     Returns:
     Dictionary of new segments like {track_index: segment_array}
     """
-    assert track.shape[1] > 32, "Track is too short to re-split"
+
     indices = np.random.choice(range(start, track.shape[1]-32), n_splits)
-    vert_indices = np.random.choice(range(track.shape[1]-128),n_splits)
+    vert_indices = np.random.choice(range(track.shape[1]-128), n_splits)
     segments = {}
     for j, i in enumerate(indices):
         vi = vert_indices[j]
         segment = track[vi:vi+128, i: i+32].copy()
+        segments[i] = segment
+    return segments
+
+
+def resplit_track_fixed(track: np.ndarray, shift_segment: int = 1):
+    """
+    Splits a track into N new segments according to formula (len(track) - 32)/shift_segment.
+
+    Arguments:
+    track -- {ndarray} -- spectogram created from IQ matrix, dimensions (>32, 128)
+    shift_segment -- {int} -- Size of step to shift track to generate new segments
+
+    Returns:
+    Dictionary of new segments like {track_index: segment_array}
+    """
+    indices = range(0, track.shape[1]-32, step=shift_segment)
+    segments = {}
+    for i in indices:
+        segment = track[0:128, i: i+32].copy()
         segments[i] = segment
     return segments
 
