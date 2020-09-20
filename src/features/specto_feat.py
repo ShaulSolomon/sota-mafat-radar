@@ -239,11 +239,13 @@ def calculate_scalogram(iq_matrix, flip=True, transformation = 'cgau1'):
         coef=np.log(np.abs(coef))
         # first column correspond to the scales, rest is the coefficients
         coef=coef[:, 1:,0]
+        
         coef=coef.T
         scalograms.append(coef)
 
     stacked_scalogram = np.stack(scalograms)
     stacked_scalogram = np.maximum(np.median(stacked_scalogram) - 1., stacked_scalogram)
+    stacked_scalogram = np.transpose(stacked_scalogram,(1,0,2))
     return stacked_scalogram
 
 
