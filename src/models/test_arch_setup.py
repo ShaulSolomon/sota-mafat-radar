@@ -26,7 +26,6 @@ def make_dummy_dataset(track_lengths):
                 df[col].append(1)
                 # df[col].append(random.randint(0, 1)) if i % 10 == 0 else df[col].append(1)
             x += 1
-    df = get_track_level_data(df)
     return df
 
 
@@ -34,6 +33,7 @@ def test_dataset_working():
     tracks_amount = random.randint(10, 20)
     track_lengths = [random.randint(100, 200) for _ in range(tracks_amount)]
     dataset = make_dummy_dataset(track_lengths)
+    dataset = get_track_level_data(dataset)
     cfg = {'get_shifts': False,
          'block_size' : 50}
 
@@ -47,9 +47,8 @@ def test_dataset_working():
 def test_dataset_with_shifts():
     track_lengths = [100, 50, 40]
     tracks_amount = len(track_lengths)
-
     dataset = make_dummy_dataset(track_lengths)
-
+    dataset = get_track_level_data(dataset)
     segment_size = 32 # under assumption of this segment_size
     for l in track_lengths:
         assert l > segment_size
