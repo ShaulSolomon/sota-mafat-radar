@@ -32,11 +32,10 @@ def test_dataset_working():
     tracks_amount = random.randint(10, 20)
     track_legths = [random.randint(100, 200) for _ in range(tracks_amount)]
     dataset = make_dummy_dataset(tracks_amount, track_legths)
-
     cfg = {'get_shifts': False,
          'block_size' : 50}
 
-    ds = arch_setup.DS2(df=dataset, labels=dataset, config=cfg)
+    ds = arch_setup.DS2(df=dataset, labels=dataset['target_type'], config=cfg)
     loader = DataLoader(dataset=ds, batch_size=1, shuffle=False, num_workers=0)
     count = sum([1 for sample in loader])
     assert count == sum(track_legths)

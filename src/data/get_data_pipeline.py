@@ -94,8 +94,8 @@ def get_track_level_data(data_dict: dict) -> pd.DataFrame:
         segments['usable'] = validation_list + [False]
         track_df = segments[columns + ['usable', 'track_id']].groupby('track_id').agg(list)
         track = track_df.to_dict(orient='index')
-        track["iq_sweep_burst"] = iq
-        track["doppler_burst"] = burst
+        track[track_id]["iq_sweep_burst"] = iq
+        track[track_id]["doppler_burst"] = burst
         tracks.append(track)
     return tracks
 
