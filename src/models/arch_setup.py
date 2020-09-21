@@ -5,6 +5,10 @@ from sklearn.metrics import roc_auc_score, roc_curve, auc
 import matplotlib.pyplot as plt
 from src.visualization import metrics
 from src.features import specto_feat
+from tqdm import tqdm_notebook as tqdm
+
+import logging
+logger = logging.getLogger()
 
 
 class DS(Dataset):
@@ -78,25 +82,35 @@ class DS(Dataset):
 
         # convert to structure supported by preprocess method
         data_inner_o = {k:[v] for (k,v) in data_inner.to_dict().items()}
+        data_inner_o['target_type'] = np.asarray(data_inner_o['target_type'])
+
+        #print(f"data_inner3:{data_inner_o}")
 
         # do preprocess
         data = specto_feat.data_preprocess(data_inner_o)
+        data['target_type'] = np.array(int(data['target_type'][0]),dtype='int64')
+
+        #print(f"data:{data}")
+
 
         # augementations
         # do flips (if needed)
-        for augment_info in data['augmentation_info'][0]: # the [0] is because we added [] in the data_inner_o
-            #print(f"augment_info:{augment_info}")
-            if augment_info['type']=='flip':
-                if augment_info['mode']=='veritcal':
-                    data['iq_sweep_burst'] = np.flip(data_inner.iq_sweep_burst,0)
-                    data['doppler_burst'] = np.abs(128-data_inner.doppler_burst)
+        if 'augmentation_info' in data.keys(): 
+            for augment_info in data['augmentation_info'][0]: # the [0] is because we added [] in the data_inner_o
+                #print(f"augment_info:{augment_info}")
+                if augment_info['type']=='flip':
+                    if augment_info['mode']=='veritcal':
+                        data['iq_sweep_burst'] = np.flip(data_inner.iq_sweep_burst,0)
+                        data['doppler_burst'] = np.abs(128-data_inner.doppler_burst)
 
-                if augment_info['mode']=='horizontal':
-                    data['iq_sweep_burst'] = np.flip(data_inner.iq_sweep_burst,1)
-                    data['doppler_burst'] = np.flip(data_inner.doppler_burst,1)
+                    if augment_info['mode']=='horizontal':
+                        data['iq_sweep_burst'] = np.flip(data_inner.iq_sweep_burst,1)
+                        data['doppler_burst'] = np.flip(data_inner.doppler_burst,1)
 
-        label2model = 0 if data['target_type']=='animal' else 1
+        label2model = data['target_type']
         data2model = data['iq_sweep_burst']
+
+        #print(f"type0:{data['target_type']}")
 
         #print(f"data2model:{data2model.shape}")  # (1,132,28)
         #data2model = data2model.reshape(list(data2model.shape)+[1])
@@ -138,11 +152,15 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         tr_y_hat = np.array([])
         tr_labels = np.array([])
 
+        tk0 = tqdm(tr_loader, total=int(len(tr_loader)))
+
         #train loop
-        for step,batch in enumerate(tr_loader):
+        for step,batch in enumerate(tk0):
 
             data, labels = batch
             tr_labels = np.append(tr_labels,labels)
+
+            #logger.info(f"data:{list(data)}")
 
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
@@ -174,10 +192,18 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
             tr_loss+=loss.item()
             tr_size+=data.shape[0]
 
-            if torch.cuda.is_available():
-                tr_y_hat = np.append(tr_y_hat,outputs.detach().cpu().numpy())
-            else:
-                tr_y_hat = np.append(tr_y_hat,outputs.detach().numpy())
+            #if torch.cuda.is_available():
+            #    tr_y_hat = np.append(tr_y_hat,outputs.detach().cpu().numpy())
+            #else:
+            #    tr_y_hat = np.append(tr_y_hat,outputs.detach().numpy())
+
+                
+            tr_y_hat = np.append(tr_y_hat,outputs.detach().cpu().numpy())
+
+            #output_t = outputs.detach().cpu().numpy()
+            #print(f"output_t:{output_t}")
+            
+            #logger.info(f"tr_y_hat:{list(tr_y_hat)}")
 
             optimizer.step()
             optimizer.zero_grad()
@@ -223,6 +249,11 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
 
         tr_fpr, tr_tpr, _ = roc_curve(tr_labels, tr_y_hat)
         val_fpr, val_tpr, _ = roc_curve(val_labels, val_y_hat)
+
+        logger.info(f"tr_y_hat:{list(tr_y_hat)}")
+        logger.info(f"tr_labels:{list(tr_labels)}")
+        logger.info(f"tr_fpr:{tr_fpr}")
+
 
         epoch_log = {'epoch': epoch+1,
                      'loss': tr_loss ,
