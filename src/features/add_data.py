@@ -4,6 +4,7 @@ import pickle
 import pandas as pd
 import psutil
 import sys
+from tqdm import tqdm_notebook as tqdm
 
 import logging
 logger = logging.getLogger()
@@ -77,7 +78,7 @@ def generate_shifts(full_data,shift_by=None):
     logger.info(f"shift:{shift_by_i}")
     print(f"shift:{shift_by_i}")
 
-    for track_id_t in all_track_ids:
+    for track_id_t in tqdm(all_track_ids):
 
       logger.info(f"track:{track_id_t} | ram:{psutil.virtual_memory().percent},{sys.getsizeof(new_segments_results)}")
       #print(f"track:{track_id_t} | ram:{psutil.virtual_memory().percent},{sys.getsizeof(new_segments_results)}")
