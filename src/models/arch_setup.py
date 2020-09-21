@@ -9,11 +9,102 @@ import matplotlib
 import matplotlib.pyplot as plt
 from src.visualization import metrics
 from src.features.augmentations import resplit_track_fixed, resplit_burst_fixed, vertical_flip, horizontal_flip
+from collections import Counter
 matplotlib.use('Agg')
 
 
-def tracks_generator(data: dict, config: dict) -> dict:
+def filter_usable_segments(data: dict) -> dict:
+    """This algorithm works on the assumption that we have a Boolean Array in data['usable'] indicating whether a
+    given segment is to be used for augmentation -- eligibility is set in get_track_level_data.
+    It will create a list of the longest adjacent sub-tracks contained in a track and return the broken-up track as a
+    list of lists, along with the corresponding doppler_burst and label arrays as lists of lists in a dictionary.
+
+    Arguments:
+            data -- {dict} -- data for one track with parameters: {'iq_sweep_burst', 'doppler_burst',
+                                                                    'target_type', 'usable'}
     """
+    track = data['iq_sweep_burst']
+    burst = data['doppler_burst']
+    # shift_segment = config.get('shift_segment', 1)
+    previous_i = 0
+    previous_usable = False
+    tracks = []
+    bursts = []
+    labels = []
+    for i, use in enumerate(data['usable']):
+        if not use:
+            if previous_usable:
+                if i - previous_i > 0:
+                    start = previous_i * 32
+                    end = i * 32
+                    tracks.append(track[:, start:end])
+                    bursts.append(burst[start:end])
+                    labels.append(data['target_type'][i])
+                    # previous_usable = False
+                    # previous_i = i+1
+            previous_i = i+1
+            previous_usable = False
+        else:
+            previous_usable = True
+    return {'tracks': tracks, 'bursts': bursts, 'labels': labels}
+
+
+def create_new_segments_from_splits(data_dict: dict, shift_segment: int) -> dict:
+    """Splits a list of tracks into new segments of size (128, 32) by shifting the existing track in shift_segment increments
+        Returns dictionary with list of segments and corresponding bursts and labels
+        Arguments:
+            data -- {dict} -- contains keys:  {tracks', 'bursts', 'labels'}
+            shift_segment -- {int} -- the number of index steps to move for each segment split
+    """
+    new_segments = []
+    new_bursts = []
+    new_labels = []
+    for i, track in enumerate(data_dict['tracks']):
+        if track.shape[1] > 32:
+                track = resplit_track_fixed(track=track, shift_segment=shift_segment)
+                burst = resplit_burst_fixed(burst=data_dict['bursts'][i], shift_segment=shift_segment)
+                new_segments.extend(track)
+                new_bursts.extend(burst)
+                new_labels.extend([data_dict['labels'][i]] * len(burst))
+        else:
+            new_segments.extend(track)
+            new_bursts.extend(data_dict['bursts'][i])
+            new_labels.append(data_dict['labels'][i])
+    return {'segments': new_segments, 'bursts': new_bursts, 'labels': new_labels}
+
+
+def create_flipped_segments(data_dict: dict, flip_type: str = 'vertical'):
+    """Returns a dictionary of vertically or horizontally flipped segments
+        Returns dictionary with list of flipped segments and correspondingly flipped bursts and labels
+        Arguments:
+            data -- {dict} -- contains keys:  {tracks', 'bursts', 'labels'}
+            flip_type {str} -- indicate whether to perform horizontal or vertical flips
+    """
+    segments = data_dict['segments']
+    bursts = data_dict['bursts']
+    labels = data_dict['labels']
+    flip = None
+    if flip_type == 'vertical':
+        flip = vertical_flip
+    if flip_type == 'horizontal':
+        flip = horizontal_flip
+    flipped_segments = []
+    flipped_bursts = []
+    flipped_labels = []
+    for i, segment in enumerate(data_dict['segments']):
+        new_segments = [flip(seg) for seg in segment]
+        flipped_segments.extend(new_segments)
+        new_bursts = [1 - burst for burst in data_dict['bursts'][i]]
+        flipped_bursts.extend(new_bursts)
+        flipped_labels.append(data_dict['labels'][i])
+    return {'segments': flipped_segments, 'bursts': flipped_bursts,
+            'labels': flipped_labels}
+
+
+def segments_generator(data: dict, config: dict) -> dict:
+    """
+    Generates new and/or augmented segments according to configuration parameters.
+    Returns a dictionary containing the merged set of segments
         Arguments:
             data -- {dict} -- data for one track with parameters: ['segment_id', 'geolocation_type', 'geolocation_id',
                                                                    'sensor_id', 'snr_type',
@@ -26,71 +117,17 @@ def tracks_generator(data: dict, config: dict) -> dict:
                  get_vertical_flip -- {bool} -- Flag to add vertical flips
                  block_size -- {int} -- Max number of samples allowed to be held in a memory
     """
-    track = data['iq_sweep_burst']
-    burst = data['doppler_burst']
-    shift_segment = config.get('shift_segment', 1)
-    previous_i = 0
-    previous_usable = False
-    tracks = []
-    bursts = []
-    labels = []
-    for i, use in enumerate(data['usable']):
-        if not use:
-            if previous_usable:
-                if i - previous_i > 0:
-                    start = (previous_i+1) * 32
-                    end = i * 32
-                    tracks.append(track[:, start:end])
-                    bursts.append(burst[start:end])
-                    labels.append(data['target_type'][i])
-                    previous_usable = False
-                    previous_i = i
-            previous_i = i
-        else:
-            previous_usable = True
-
-
-
-    new_segments = []
-    new_bursts = []
-    new_labels = []
-    for i, track in enumerate(tracks):
-        if track.shape[1] > 32:
-            if config.get('get_shifts'):
-                track = resplit_track_fixed(track=track, shift_segment=shift_segment)
-                burst = resplit_burst_fixed(burst=bursts[i], shift_segment=shift_segment)
-                new_segments.extend(track)
-                new_bursts.extend(burst)
-            else:
-                track = resplit_track_fixed(track=track, shift_segment=32)
-                burst = resplit_burst_fixed(burst=bursts[i], shift_segment=32)
-                new_segments.extend(track)
-                new_bursts.extend(burst)
-            new_labels.extend([labels[i]] * len(burst))
-        else:
-            new_segments.extend(track)
-            new_bursts.extend(bursts[i])
-            new_labels.append(labels[i])
-    flipped_segments = []
-    flipped_bursts = []
-    flipped_labels = []
-    if config.get('get_horizontal_flip'):
-        for i, segment in enumerate(new_segments):
-            vertical_segments = [vertical_flip(seg) for seg in segment]
-            flipped_segments.extend(vertical_segments)
-            vertical_bursts = [1 - burst for burst in new_bursts[i]]
-            flipped_bursts.extend(vertical_bursts)
-            flipped_labels.append(new_labels[i])
+    filtered_data = filter_usable_segments(data=data)
+    resplit_data = create_new_segments_from_splits(filtered_data, shift_segment=config.get('shift_segment', 32))
+    flips = {}
     if config.get('get_vertical_flip'):
-        for segment in new_segments:
-            horizontal_segments = [horizontal_flip(seg) for seg in segment]
-            flipped_segments.extend(horizontal_segments)
-            horizontal_bursts = [burst.reverse() for burst in new_bursts[i]]
-            flipped_bursts.extend(horizontal_bursts)
-            flipped_labels.append(new_labels[i])
-    data = {'segments': new_segments + flipped_segments, 'doppler_bursts': new_bursts + flipped_bursts,
-            'labels': new_labels + flipped_labels}
-    return data
+        flips = create_flipped_segments(resplit_data, flip_type='vertical')
+        resplit_data = dict(Counter(resplit_data) + Counter(flips))
+    if config.get('get_horizontal_flip'):
+        flips = create_flipped_segments(resplit_data, flip_type='horizontal')
+        resplit_data = dict(Counter(resplit_data) + Counter(flips))
+    return resplit_data
+
 
 
 class TrackDS(Dataset):
@@ -135,7 +172,7 @@ class DS2(IterableDataset):
         block_size = self.config.get('block_size')
         loaders = []
         for track in self.random_index:
-            data_dict = pd.DataFrame(tracks_generator(self.data[track], self.config)).to_dict(orient='index')
+            data_dict = pd.DataFrame(segments_generator(self.data[track], self.config)).to_dict(orient='index')
             data = TrackDS(data_dict)
             loaders.append(DataLoader(data, batch_size=block_size, shuffle=True))
         return loaders
@@ -151,6 +188,9 @@ class DS2(IterableDataset):
     #     return [cls(data, config={}) for _ in range(num_workers)]
 
     def __iter__(self):
+        """This method currently returns a list of DataLoaders from self.process_data() in a chained but linear fashion"""
+        # TODO paralellize the sampling
+        # TODO build a batch by paralleling the sampling i.e. taking one batch from each DataLoader in the generator.
         return chain.from_iterable(self.process_data())
 
 

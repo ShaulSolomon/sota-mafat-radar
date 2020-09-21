@@ -56,10 +56,10 @@ def load_all_datasets(PATH_DATA: str, config: dict = None) -> dict:
 
 
 def get_track_level_data(data_dict: dict) -> dict:
-    """Transform a dictionary of segment-level datasets into a track-level dataframe
+    """Transform a dictionary of segment-level datasets into a track-level dictionary
 
             Arguments:
-                data_dict -- {str}: path to the data directory, comes from credentials.ini file
+                data_dict -- {dict}: contains the data for all segments
                 config -- {dict}:
                     num_tracks -- {int} -- # of tracks to take from aux dataset
 
@@ -68,6 +68,7 @@ def get_track_level_data(data_dict: dict) -> dict:
             """
     columns = ['geolocation_type', 'geolocation_id', 'sensor_id', 'snr_type', 'date_index', 'target_type']
     all_track_ids = np.unique(data_dict['track_id'])
+    # Creating a dataframe as well to make it easier to validate sequential segments
     df = pd.DataFrame.from_dict(data_dict, orient='index').transpose()
     tracks = {}
     for track_id in all_track_ids:
@@ -76,6 +77,8 @@ def get_track_level_data(data_dict: dict) -> dict:
         segment_idxs = segments.index.tolist()
         segment_idxs = [(x, y) for x, y in zip(segment_idxs, segment_idxs[1:])]
         validation_list = []
+
+        # TODO vectorize this loop by using shift
         for seg_id in segment_idxs:
 
             logger.info(f"seg_id:{seg_id}")
