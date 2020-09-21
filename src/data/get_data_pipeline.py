@@ -99,30 +99,6 @@ def get_track_level_data(data_dict: dict) -> dict:
         tracks[track_id] = track
     return tracks
 
-def sample_track_subset(track_df: pd.DataFrame, k=10) -> pd.DataFrame:
-
-    sub_indices = random.sample(track_df.index.tolist(), k=k)
-    subset = track_df[track_df.index.isin(sub_indices)].copy()
-    return subset
-    # This could be irrelevant since we'll get an error if k > number of tracks
-
-
-def create_segment_pool(data, config):
-
-    # TODO iterate over each track and create augmentations.
-    # TODO return randomly shuffled list of segments from a minimum of k tracks
-    pass
-
-
-def yield_segments_from_pool(segment_pool, batch_size: int):
-    # TODO create generator function that yields blocks of a fixed size from the segment pool
-    pass
-
-
-def refill_segment_pool(unused_tracks):
-
-    pass
-
 
 def pipeline_trainval(PATH_DATA, config={}):
     """
