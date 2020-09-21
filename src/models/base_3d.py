@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 class base3d(nn.Module):
     def __init__(self):
-        super(CNNModel, self).__init__()
+        super(base3d, self).__init__()
         
         self.conv_layer1 = self._conv_layer_set(1, 16)
         self.conv_layer2 = self._conv_layer_set(16, 32)
@@ -36,7 +36,7 @@ class base3d(nn.Module):
 
 class alex_3d(nn.Module):
     def __init__(self):
-        super(CNNModel, self).__init__()
+        super(alex_3d, self).__init__()
         
         self.conv_layer1 = self._conv_layer_set(1, 32,(7,7,3),(3,3,3))
         self.conv_layer2 = self._conv_layer_set(32, 128,(5,5,3))
