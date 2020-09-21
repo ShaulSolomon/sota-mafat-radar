@@ -38,21 +38,21 @@ class alex_3d(nn.Module):
     def __init__(self):
         super(alex_3d, self).__init__()
         
-        self.conv_layer1 = self._conv_layer_set(1, 32,(7,7,3),(3,3,3))
-        self.conv_layer2 = self._conv_layer_set(32, 128,(5,5,3))
-        self.conv_layer3 = self._conv_layer_set(128, 256)
-        self.conv_layer4 = self._conv_layer_set(256, 128)
-        self.conv_layer5 = self._conv_layer_set(128, 128)
+        self.conv_layer1 = self._conv_layer_set(1, 32,(3,3,3),(3,3,3),pad=2)
+        self.conv_layer2 = self._conv_layer_set(32, 128,(3,3,1),(2,2,1),pad=(2,2,2))
+        self.conv_layer3 = self._conv_layer_set(128, 256, pool = (2,2,1),pad=(1,1,0))
+        self.conv_layer4 = self._conv_layer_set(256, 128,pool = (2,2,1),pad=(1,1,0))
+        self.conv_layer5 = self._conv_layer_set(128, 128,pool = (1,1,1),pad=(1,1,0))
 
 
         self.classifier = nn.Sequential(
                             nn.Dropout(p=0.5, inplace=False),
-                            nn.Linear(in_features=4608, out_features=4096, bias=True),
+                            nn.Linear(in_features=640, out_features=1024, bias=True),
                             nn.LeakyReLU(inplace=True),
                             nn.Dropout(p=0.5, inplace=False),
-                            nn.Linear(in_features=4096, out_features=4096, bias=True),
+                            nn.Linear(in_features=1024, out_features=256, bias=True),
                             nn.LeakyReLU(inplace=True),
-                            nn.Linear(in_features=4096, out_features=1, bias=True)   
+                            nn.Linear(in_features=256, out_features=1, bias=True)   
         )
              
     def _conv_layer_set(self, in_c, out_c, kernel = (3,3,3), pool = (2,2,2), pad = 0):
@@ -66,16 +66,12 @@ class alex_3d(nn.Module):
 
     def forward(self, x):
         # Set 1
+        #x = x.permute(0,4,1,2,3)
         out = self.conv_layer1(x)
-        print(out.shape)
         out = self.conv_layer2(out)
-        print(out.shape)
         out = self.conv_layer3(out)
         out = self.conv_layer4(out)
-        print(out.shape)
         out = self.conv_layer5(out)
-        print(out.shape)
         out = out.view(out.size(0), -1)
-        print(out.shape)
         out = self.classifier(out)
         return out
