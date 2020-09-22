@@ -39,8 +39,12 @@ def test_dataset_working():
 
     ds = arch_setup.DS2(data_records=dataset, config=cfg)
     loader = DataLoader(dataset=ds, batch_size=1, shuffle=False, num_workers=0)
-    count = sum([sample['labels'].shape[1] for sample in loader])
+    sample_counts = [sample['labels'].shape[1] for sample in loader]
+    count = sum(sample_counts)
+    print(f'Total samples generated: {count}')
     expected_length = sum(track_lengths)
+    print(f'Total samples expected: {expected_length}')
+    print(f'Samples missing: {expected_length - count}')
     assert count == expected_length
 
 
