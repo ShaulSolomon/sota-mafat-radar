@@ -4,29 +4,13 @@ import numpy as np
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 import matplotlib.pyplot as plt
 from src.visualization import metrics
+from src.features import specto_feat
+from tqdm import tqdm_notebook as tqdm
+
+import logging
+logger = logging.getLogger()
 
 
-class DS(Dataset):
-    def __init__(self,df,labels, addit = None):
-        super().__init__()
-        self.df=df
-        self.labels=labels
-        if addit:
-            self.addit = np.array(addit)
-        else:
-            self.addit = None
-
-
-    def __len__(self):
-        return self.df.shape[0]
-
-    def __getitem__(self, idx):
-        data = self.df[idx]
-        label = self.labels[idx]
-        if self.addit:
-            addit = self.addit[idx]
-            return [data,addit], label    
-        return data,label
 
 def pretty_log(log):
     for key,value in log.items():
@@ -37,12 +21,12 @@ def pretty_log(log):
 def thresh(output, thresh_hold = 0.5):
     return [0 if x <thresh_hold else 1 for x in output]
 
-
 def accuracy_calc(outputs, labels):
     #print("acc1:",outputs, labels)
     preds = thresh(outputs)
     #print("acc2:",preds)
     return np.sum(preds == labels) / len(preds)
+
 
 def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, device,train_y,val_y,log=None,WANDB_enable = False,wandb=None):
 
@@ -61,8 +45,13 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         tr_y_hat = np.array([])
         tr_labels = np.array([])
 
+        tk0 = tqdm(tr_loader, total=int(len(tr_loader)))
+
         #train loop
-        for step,batch in enumerate(tr_loader):
+        for step,batch in enumerate(tk0):
+
+            if (step %100==0):
+                logger.info(f"step {step}")
 
             data, labels = batch
             tr_labels = np.append(tr_labels,labels)
@@ -80,7 +69,7 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
 
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
-            
+
             # added
             if snr:
               outputs = model(data,snr)
@@ -97,10 +86,18 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
             tr_loss+=loss.item()
             tr_size+=data.shape[0]
 
-            if torch.cuda.is_available():
-                tr_y_hat = np.append(tr_y_hat,outputs.detach().cpu().numpy())
-            else:
-                tr_y_hat = np.append(tr_y_hat,outputs.detach().numpy())
+            #if torch.cuda.is_available():
+            #    tr_y_hat = np.append(tr_y_hat,outputs.detach().cpu().numpy())
+            #else:
+            #    tr_y_hat = np.append(tr_y_hat,outputs.detach().numpy())
+
+
+            tr_y_hat = np.append(tr_y_hat,outputs.detach().cpu().numpy())
+
+            #output_t = outputs.detach().cpu().numpy()
+            #print(f"output_t:{output_t}")
+
+            #logger.info(f"tr_y_hat:{list(tr_y_hat)}")
 
             optimizer.step()
             optimizer.zero_grad()
@@ -112,6 +109,8 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         val_size = 0
         val_y_hat = np.array([])
         val_labels = np.array([])
+
+        logger.info("start validation")
 
         #validation loop
         for step, batch in enumerate(val_loader):
@@ -157,13 +156,14 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
 
 
         pretty_log(epoch_log)
+        logger.info(epoch_log)
 
         training_log.append(epoch_log)
 
         if WANDB_enable == True:
             wandb.log(epoch_log)
 
-    return training_log   
+    return training_log
 
 
 def plot_loss_train_test(logs,model):
@@ -193,7 +193,7 @@ def plot_ROC_local_gpu(train_loader, val_loader, model,device):
     Arguments:
         train_loader -- {DataLoader} -- has train data stored in batches defined in notebook
         val_loader -- {DataLoader} -- has val data stored in batches defined in notebook
-        model -- {nn.Module} -- pytorch model 
+        model -- {nn.Module} -- pytorch model
         device -- {torch.device} -- cpu/cuda
 
     '''
@@ -225,7 +225,7 @@ def plot_ROC(train_x, val_x, train_y, val_y, model,device):
         val_x -- {np.array} --  val data
         train_y -- {np.array} -- train labels
         val_y -- {np.array} -- val labels
-        model -- {nn.Module} -- pytorch model 
+        model -- {nn.Module} -- pytorch model
         device -- {torch.device} -- cpu/cuda
 
     '''

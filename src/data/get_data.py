@@ -33,11 +33,11 @@ from boto import boto
 # PATH_DATA = config_parser['MAIN']["PATH_DATA"]
 # #####
 
-# The function append_dict is for concatenating the training set 
+# The function append_dict is for concatenating the training set
 # with the Auxiliary data set segments
 
 #import ipdb -> add ipdb.set_trace() where you need the breakpoint
-    
+
 spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
        [2.444e-01, 1.534e-01, 6.728e-01],
        [2.464e-01, 1.569e-01, 6.847e-01],
@@ -312,7 +312,7 @@ def load_data(file_path, folder=None):
   pkl = load_pkl_data(file_path, folder=folder)
   meta = load_csv_metadata(file_path, folder=folder)
   data_dictionary = {**meta, **pkl}
-  
+
   for key in data_dictionary.keys():
     data_dictionary[key] = np.array(data_dictionary[key])
 
@@ -367,7 +367,7 @@ def classic_trainval(PATH_DATA, df_type = 'spectrogram'):
 
   Arguments:
     PATH_DATA -- {str} -- path to dataset
-    df type -- {bool} -- train data type, either spectrogram (iq_matrix) or scalogram (3d wavelets) 
+    df type -- {bool} -- train data type, either spectrogram (iq_matrix) or scalogram (3d wavelets)
 
 
   """
@@ -518,7 +518,26 @@ def split_train_val_as_df(data,ratio=6):
   return train_dict, val_dict
 
 
+def split_train_val_as_pd(data,ratio=6):
+  """
+  Split the data to train and validation set.
+  The validation set is built from training set segments of
+  geolocation_id 1 and 4.
+  Use the function only after the training set is complete and preprocessed.
 
+  Arguments:
+    data -- {pandas} -- the data set to split as pandas dataframe
+    ratio -- {int} -- ratio to make the split by
+
+  Returns:
+    same dataset as input, with adding is_validation column
+  """
+
+  data['is_validation'] = (
+    (data['geolocation_id'] == 4) | (data['geolocation_id'] == 1)) & \
+      (data['segment_id'] % ratio == 0)
+
+  return data
 
 
 if __name__ == "__main__":
