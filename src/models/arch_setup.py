@@ -92,7 +92,6 @@ class DS(Dataset):
 
         #print(f"data:{data}")
 
-
         # augementations
         # do flips (if needed)
         if 'augmentation_info' in data.keys(): 
@@ -100,12 +99,12 @@ class DS(Dataset):
                 #print(f"augment_info:{augment_info}")
                 if augment_info['type']=='flip':
                     if augment_info['mode']=='veritcal':
-                        data['iq_sweep_burst'] = np.flip(data_inner.iq_sweep_burst,0)
-                        data['doppler_burst'] = np.abs(128-data_inner.doppler_burst)
+                        data['iq_sweep_burst'] = np.flip(data['iq_sweep_burst'],0)
+                        data['doppler_burst'] = np.abs(128-data['doppler_burst'])
 
                     if augment_info['mode']=='horizontal':
-                        data['iq_sweep_burst'] = np.flip(data_inner.iq_sweep_burst,1)
-                        data['doppler_burst'] = np.flip(data_inner.doppler_burst,1)
+                        data['iq_sweep_burst'] = np.flip(data['iq_sweep_burst'],1)
+                        data['doppler_burst'] = np.flip(data['doppler_burst'])
 
         label2model = data['target_type']
         data2model = data['iq_sweep_burst']
@@ -116,7 +115,7 @@ class DS(Dataset):
         #data2model = data2model.reshape(list(data2model.shape)+[1])
         data2model = np.expand_dims(data2model.squeeze(),axis=2)  # (132,28,1)
 
-        return data2model, label2model
+        return torch.from_numpy(data2model.copy()), torch.tensor(label2model.astype(np.int))
 
 
 def pretty_log(log):
@@ -157,10 +156,11 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         #train loop
         for step,batch in enumerate(tk0):
 
+            if (step %100==0):
+                logger.info(f"step {step}")
+
             data, labels = batch
             tr_labels = np.append(tr_labels,labels)
-
-            #logger.info(f"data:{list(data)}")
 
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
@@ -216,6 +216,8 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         val_y_hat = np.array([])
         val_labels = np.array([])
 
+        logger.info("start validation")
+
         #validation loop
         for step, batch in enumerate(val_loader):
 
@@ -250,11 +252,6 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         tr_fpr, tr_tpr, _ = roc_curve(tr_labels, tr_y_hat)
         val_fpr, val_tpr, _ = roc_curve(val_labels, val_y_hat)
 
-        logger.info(f"tr_y_hat:{list(tr_y_hat)}")
-        logger.info(f"tr_labels:{list(tr_labels)}")
-        logger.info(f"tr_fpr:{tr_fpr}")
-
-
         epoch_log = {'epoch': epoch+1,
                      'loss': tr_loss ,
                      'auc': auc(tr_fpr, tr_tpr),
@@ -265,6 +262,7 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
 
 
         pretty_log(epoch_log)
+        logger.info(epoch_log)
 
         training_log.append(epoch_log)
 
