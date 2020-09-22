@@ -189,7 +189,7 @@ def data_preprocess(data, df_type = 'spectrogram' , flip = True, kernel = 'cgau1
   if df_type == 'scalogram':
     pbar = tqdm.tqdm(total = len(data['iq_sweep_burst']), position = 0, leave = True)
     for i in range(len(data['iq_sweep_burst'])):
-      X.append(calculate_scalogram(iq, flip = flip, transformation= kernel))
+      X.append(calculate_scalogram(data['iq_sweep_burst'][i], flip = flip, transformation= kernel))
       pbar.update()
     pbar.close()
   else:
@@ -225,11 +225,11 @@ def calculate_scalogram(iq_matrix, flip=True, transformation = 'cgau1'):
 
     
     scalograms = []
-    #analyze each column (time-point) seperatly
+    #analyze each column (time-point) seperatly.
+    iq_matrix = normalize(iq_matrix)
     for j in range(iq_matrix.shape[1]):
         # preform hann smoothing on a column - results in a singal j-2 sized column
         # preform py.cwt transformation, returns coefficients and frequencies
-        iq_matrix = normalize(iq_matrix)
         
         coef, freqs=pywt.cwt(hann(iq_matrix[:, j][:, np.newaxis]), np.arange(1,9), transformation)
         # coefficient matrix returns as a (num_scalers-1, j-2 , 1) array, transform it into a 2-d array
