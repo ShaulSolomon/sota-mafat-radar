@@ -140,3 +140,4 @@ wandb/
 ngrok-stable-linux-amd64.zip
 ngrok
 .vscode/
+.dvc/
