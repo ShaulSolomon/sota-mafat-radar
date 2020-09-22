@@ -41,11 +41,13 @@ def test_dataset_working():
     loader = DataLoader(dataset=ds, batch_size=1, shuffle=False, num_workers=0)
     sample_counts = [sample['labels'].shape[1] for sample in loader]
     count = sum(sample_counts)
-    print(f'Total samples generated: {count}')
+    print(f'Total segments generated: {count}')
     expected_length = sum(track_lengths)
-    print(f'Total samples expected: {expected_length}')
-    print(f'Samples missing: {expected_length - count}')
-    assert count == expected_length
+    print(f'Total segments expected: {expected_length}')
+    print(f'Segments missing: {expected_length - count}')
+    print(f'Tracks created: {tracks_amount}')
+    assert (expected_length - count) == tracks_amount
+    assert count + tracks_amount == expected_length
 
 
 def test_dataset_with_shifts():
@@ -56,9 +58,10 @@ def test_dataset_with_shifts():
     segment_size = 32 # under assumption of this segment_size
     for l in track_lengths:
         assert l > segment_size
-    expected_samples = [l - segment_size + 1 for l in track_lengths]
+    expected_samples = [l for l in track_lengths]
     expected_sample_count = sum(expected_samples)
-
+    print(f'Tracks created: {tracks_amount}')
+    print(f'Total segments expected: {expected_sample_count}')
     for block_size in [30, 100]:
         cfg = {'get_shifts': True,  # this option assumes DS2 creates all the possible shifts in each track
              'block_size': block_size}
@@ -68,8 +71,10 @@ def test_dataset_with_shifts():
         samples = []
         count = 0
         for sample in loader:
-            count += 1
+            count += sample['segments'].shape[1]
             samples.append(sample)
-        assert count == expected_sample_count
+        print(f'Total segments generated: {count}')
+        print(f'Segments missing: {expected_sample_count - count}')
+        assert count + tracks_amount == expected_sample_count
 
-test_dataset_working()
+test_dataset_with_shifts()

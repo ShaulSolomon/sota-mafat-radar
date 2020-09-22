@@ -46,6 +46,10 @@ def filter_usable_segments(data: dict) -> dict:
             previous_usable = False
         else:
             previous_usable = True
+    if not tracks:
+        tracks.append(track)
+        bursts.append(burst)
+        labels.append(data['target_type'])
     return {'tracks': tracks, 'bursts': bursts, 'labels': labels}
 
 

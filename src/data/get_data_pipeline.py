@@ -64,43 +64,26 @@ def get_track_level_data(data_dict: dict) -> dict:
                     num_tracks -- {int} -- # of tracks to take from aux dataset
 
             Returns:
-            Concatenated I/Q matrix and concatenated doppler burst vector
+            Dictionary with concatenated I/Q matrix, doppler burst vector, usability index and segment index vector
             """
     columns = ['geolocation_type', 'geolocation_id', 'sensor_id', 'snr_type', 'date_index', 'target_type']
-    all_track_ids = np.unique(data_dict['track_id'])
-    # Creating a dataframe as well to make it easier to validate sequential segments
+    # Creating a dataframe to make it easier to validate sequential segments
     df = pd.DataFrame.from_dict(data_dict, orient='index').transpose()
-    tracks = {}
-    for track_id in all_track_ids:
-        iq, burst = add_data.concatenate_track(data_dict, track_id, snr_plot='both')
-        segments = df[df.track_id == track_id].copy()
-        segment_idxs = segments.index.tolist()
-        segment_idxs = [(x, y) for x, y in zip(segment_idxs, segment_idxs[1:])]
-        validation_list = []
-
-        # TODO vectorize this loop by using shift
-        for seg_id in segment_idxs:
-
-            logger.info(f"seg_id:{seg_id}")
-
-            usable = True
-            for col in columns:
-                if df.iloc[seg_id[0]][col] != df.iloc[seg_id[1]][col]:
-                    # print(f"{seg_id[0]},{seg_id[1]}: diff {col}. skip")
-                    usable = False
-                    break
-
-            if df.iloc[seg_id[0]].is_validation or df.iloc[seg_id[1]].is_validation:
-                    # print(f"{seg_id[0]},{seg_id[1]}: is_validation. skip")
-                usable = False
-            validation_list.append(usable)
-        segments['usable'] = validation_list + [False]
-        track_df = segments[columns + ['usable', 'track_id']].groupby('track_id').agg(list)
-        track = track_df.to_dict(orient='index')[track_id]
-        track["iq_sweep_burst"] = iq
-        track["doppler_burst"] = burst
-        tracks[track_id] = track
-    return tracks
+    df.sort_values(by=['track_id', 'segment_id'], inplace=True)
+    conditions = [(df.groupby('track_id')[col].shift(0) == df.groupby('track_id')[col].shift(1).bfill())
+                  for col in columns]
+    df['usable'] = np.select(conditions, conditions, default=False)
+    df.loc[df['is_validation'] == True, 'usable'] = False
+    df.loc[df['is_validation'].shift(1).bfill() == True, 'usable'] = False
+    df_tracks = df.groupby('track_id').agg(target_type=pd.NamedAgg(column="target_type", aggfunc=list),
+                                           usable=pd.NamedAgg(column="usable", aggfunc=list),
+                                           iq_sweep_burst=pd.NamedAgg(column="iq_sweep_burst", aggfunc=list),
+                                           doppler_burst=pd.NamedAgg(column="doppler_burst", aggfunc=list),)
+    df_tracks['iq_sweep_burst'] = df_tracks['iq_sweep_burst'].apply(lambda x: np.concatenate(x, axis=-1))
+    df_tracks['doppler_burst'] = df_tracks['doppler_burst'].apply(lambda x: np.concatenate(x, axis=-1))
+    df_tracks['target_type'] = df_tracks['target_type'].apply(np.array)
+    df_tracks['usable'] = df_tracks['usable'].apply(np.array)
+    return df_tracks.to_dict(orient='index')
 
 
 def pipeline_trainval(PATH_DATA, config={}):
