@@ -11,6 +11,28 @@ import logging
 logger = logging.getLogger()
 
 
+class DS(Dataset):
+    def __init__(self,df,labels, addit = None):
+        super().__init__()
+        self.df=df
+        self.labels=labels
+        if addit:
+            self.addit = np.array(addit)
+        else:
+            self.addit = None
+
+
+    def __len__(self):
+        return self.df.shape[0]
+
+    def __getitem__(self, idx):
+        data = self.df[idx]
+        label = self.labels[idx]
+        if self.addit:
+            addit = self.addit[idx]
+            return [data,addit], label    
+        return data,label
+
 
 def pretty_log(log):
     for key,value in log.items():
