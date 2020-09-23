@@ -3,19 +3,32 @@
 script to run 
 """
 #%%
-
 import configparser
-import os.path
 from os import path
-import logging
 import os
 import sys
 
+PATH_ROOT = ""
+PATH_DATA = ""
+
+creds_path_ar = ["../../credentials.ini","credentials.ini"]
+PATH_ROOT = ""
+PATH_DATA = ""
+
+for creds_path in creds_path_ar:
+    if path.exists(creds_path):
+        config_parser = configparser.ConfigParser()
+        config_parser.read(creds_path)
+        PATH_ROOT = config_parser['MAIN']["PATH_ROOT"]
+        PATH_DATA = config_parser['MAIN']["PATH_DATA"]
+        WANDB_enable = config_parser['MAIN']["WANDB_ENABLE"] == 'TRUE'
+        ENV = config_parser['MAIN']["ENV"]
+
 # adding cwd to path to avoid "No module named src.*" errors
-sys.path.insert(0,os.path.join(os.getcwd()))
+sys.path.insert(0,os.path.join(PATH_ROOT))
 
 #%%
-
+import argparse
 import random
 import pickle
 import pandas as pd
@@ -35,35 +48,67 @@ from termcolor import colored
 from src.data import feat_data, get_data, get_data_pipeline
 from src.models import arch_setup, alex_model, dataset_ram_reduced
 from src.features import specto_feat,add_data
+from src.visualization import metrics
+from src.utils import helpers
 
-#%%
-PATH_ROOT = ""
-PATH_DATA = ""
+import logging
 
-creds_path_ar = ["../../credentials.ini","credentials.ini"]
-PATH_ROOT = ""
-PATH_DATA = ""
-
-for creds_path in creds_path_ar:
-    if path.exists(creds_path):
-        config_parser = configparser.ConfigParser()
-        config_parser.read(creds_path)
-        PATH_ROOT = config_parser['MAIN']["PATH_ROOT"]
-        PATH_DATA = config_parser['MAIN']["PATH_DATA"]
-        WANDB_enable = config_parser['MAIN']["WANDB_ENABLE"] == 'TRUE'
-        ENV = config_parser['MAIN']["ENV"]
-
-wandb = None
-# if WANDB_enable == True:
-#     if ENV=="COLAB":
-#       !pip install --upgrade wandb
-#     import wandb
-#     !wandb login {config_parser['MAIN']["WANDB_LOGIN"]}
-#     wandb.init(project="sota-mafat-base")
-#     os.environ['WANDB_NOTEBOOK_NAME'] = '[SS]Alexnet_pytorch'
 
 #%%
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--num_tracks', type=int, default=3,  help='num_tracks from auxilary')
+parser.add_argument('--val_ratio',  type=str, default=3, help='from good tracks, how many to take to validation set (1:X)')
+parser.add_argument('--shift_segment', type=str, help='shifts to use. can be single value, a range 1-31, or comma separated values')
+parser.add_argument('--get_shifts', type=bool, default=False, help='whether to add shifts')
+parser.add_argument('--get_horizontal_flip', type=bool, default=False, help='whether to add horizontal flips')
+parser.add_argument('--get_vertical_flip', type=bool, default=False, help='whether to add vertical flips')
+parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
+parser.add_argument('--learn_rate', type=float, default=1e-4, help='learn_rate')
+
+args = parser.parse_args()
+
+#%%
+
+config = dict()
+
+if 'args' in globals():
+    config['num_tracks'] = args.num_tracks
+    config['val_ratio'] = args.val_ratio
+    
+    if args.shift_segment is not None:
+        config['shift_segment'] = helpers.parse_range_list(args.shift_segment)
+    
+    config['get_shifts'] = args.get_shifts
+    config['get_horizontal_flip'] = args.get_horizontal_flip
+    config['get_vertical_flip'] = args.get_vertical_flip
+    batch_size = args.batch_size
+    lr = args.learn_rate
+
+else:
+    config['num_tracks'] = 0
+    config['val_ratio'] = 3
+    config['shift_segment'] = list(np.arange(1,31))
+    config['get_shifts'] = False
+    config['get_horizontal_flip'] = False
+    config['get_vertical_flip'] = False
+    batch_size = 32
+    lr = 1e-4
+
+print(config)
+
+#%%
+
+# if you want to run WANDB. do 'pip install --upgrade wandb' in terminal 
+
+if WANDB_enable == True:
+    import wandb
+    !wandb login {config_parser['MAIN']["WANDB_LOGIN"]}
+    wandb.init(project="sota-mafat-base")
+    os.environ['WANDB_NOTEBOOK_NAME'] = '[SS]Alexnet_pytorch'
+
+#%%
+"""
 log_filename = "alexnet_pytorch.log"
 if os.path.exists(log_filename):
     os.remove(log_filename)
@@ -91,17 +136,6 @@ else:
     device = torch.device('cpu:0')
 
 #%%
-
-config = dict()
-config['num_tracks'] = 0
-config['val_ratio'] = 3
-config['shift_segment'] = list(np.arange(1,31))
-config['get_shifts'] = False
-config['get_horizontal_flip'] = False
-config['get_vertical_flip'] = False
-
-batch_size = 32
-lr = 1e-4
 
 full_data_picklefile = PATH_DATA+'/full_data.pickle'
 if path.exists(full_data_picklefile):
@@ -155,6 +189,8 @@ else:
     wandb.config['learning rate'] = lr
     wandb.log(config)
 
+#%%
+
 log = arch_setup.train_epochs(train_loader,val_loader,model,criterion,optimizer,num_epochs= 10,device=device,train_y=train_y,val_y=val_y, WANDB_enable = WANDB_enable, wandb= wandb)
 
 
@@ -181,12 +217,14 @@ val_x = np.stack( val_x, axis=0 )
 pred = [model(torch.from_numpy(sample_x).to(device, dtype=torch.float)).detach().cpu().numpy(),
         model(torch.from_numpy(val_x).to(device, dtype=torch.float)).detach().cpu().numpy()]
 actual = [sample_y, val_y]
-metrics.stats(pred, actual)
+plt1 = metrics.stats(pred, actual)
+if WANDB_enable:
+    wandb.log({"roc_chart": plt})
+
 
 #%%
 
-
-# """## SUBMIT"""
+# SUBMIT
 
 test_path = 'MAFAT RADAR Challenge - Public Test Set V1'
 test_df = get_data.load_data(test_path, PATH_DATA)
@@ -202,4 +240,7 @@ submission['prediction'] = submission['prediction'].astype('float')
 
 # Save submission
 submission.to_csv('submission.csv', index=False)
+
+"""
+
 
