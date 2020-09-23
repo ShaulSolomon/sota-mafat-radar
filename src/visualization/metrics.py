@@ -42,6 +42,8 @@ def stats(pred, actual, mode="Validation"):
   plt.legend(loc="lower right", prop = {'size': 20})
   plt.show()
 
+  return plt
+
 
 def plot_confusion_matrix(cm, classes,
                         normalize=False,
