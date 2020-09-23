@@ -34,6 +34,7 @@ import pickle
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import subprocess
 
 import torch
 import torch.nn as nn
@@ -65,25 +66,32 @@ parser.add_argument('--get_horizontal_flip', type=bool, default=False, help='whe
 parser.add_argument('--get_vertical_flip', type=bool, default=False, help='whether to add vertical flips')
 parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
 parser.add_argument('--learn_rate', type=float, default=1e-4, help='learn_rate')
+parser.add_argument('--wandb', type=bool, default=False, help='enable WANDB logging')
+parser.add_argument('--epochs', type=int, default=10, help='number of epochs to run')
 
 args = parser.parse_args()
 
 #%%
 
+epochs = 10
+batch_size = 32
+lr = 1e-4
+
 config = dict()
 
 if 'args' in globals():
+    batch_size = args.batch_size
+    lr = args.learn_rate
+    WANDB_enable = args.wandb
+    epochs = args.epochs
     config['num_tracks'] = args.num_tracks
     config['val_ratio'] = args.val_ratio
-    
-    if args.shift_segment is not None:
-        config['shift_segment'] = helpers.parse_range_list(args.shift_segment)
     
     config['get_shifts'] = args.get_shifts
     config['get_horizontal_flip'] = args.get_horizontal_flip
     config['get_vertical_flip'] = args.get_vertical_flip
-    batch_size = args.batch_size
-    lr = args.learn_rate
+    if args.shift_segment is not None:
+        config['shift_segment'] = helpers.parse_range_list(args.shift_segment)
 
 else:
     config['num_tracks'] = 0
@@ -92,23 +100,24 @@ else:
     config['get_shifts'] = False
     config['get_horizontal_flip'] = False
     config['get_vertical_flip'] = False
-    batch_size = 32
-    lr = 1e-4
 
 print(config)
 
 #%%
 
-# if you want to run WANDB. do 'pip install --upgrade wandb' in terminal 
+# if you want to run WANDB. run './src/scripts/wandb_login.sh' in shell (need to run only once per session/host)
 
 if WANDB_enable == True:
+    print("wandb install and login start")    
+    subprocess.check_output(['sudo','./src/scripts/wandb_login.sh'])
     import wandb
-    !wandb login {config_parser['MAIN']["WANDB_LOGIN"]}
+    runname = input("Enter WANDB runname:")
+    notes = input("Enter run notes :")
     wandb.init(project="sota-mafat-base")
-    os.environ['WANDB_NOTEBOOK_NAME'] = '[SS]Alexnet_pytorch'
+    os.environ['WANDB_NOTEBOOK_NAME'] = os.path.splitext(os.path.basename(__file__))[0]	
+
 
 #%%
-"""
 log_filename = "alexnet_pytorch.log"
 if os.path.exists(log_filename):
     os.remove(log_filename)
@@ -175,9 +184,6 @@ model.to(device)
 if WANDB_enable == False:
   wandb = None
 else:
-    runname = input("Enter WANDB runname(ENTER to skip wandb) :")
-    notes = input("Enter run notes :")
-
     wandb.init(project="sota-mafat-base",name=runname, notes=notes)
     os.environ['WANDB_NOTEBOOK_NAME'] = '[SS]Alexnet_pytorch'
     
@@ -191,7 +197,10 @@ else:
 
 #%%
 
-log = arch_setup.train_epochs(train_loader,val_loader,model,criterion,optimizer,num_epochs= 10,device=device,train_y=train_y,val_y=val_y, WANDB_enable = WANDB_enable, wandb= wandb)
+log = arch_setup.train_epochs(
+    train_loader,val_loader,model,criterion,optimizer,
+    num_epochs= epochs,device=device,train_y=train_y,val_y=val_y, 
+    WANDB_enable = WANDB_enable, wandb= wandb)
 
 
 #%%
@@ -240,7 +249,4 @@ submission['prediction'] = submission['prediction'].astype('float')
 
 # Save submission
 submission.to_csv('submission.csv', index=False)
-
-"""
-
 
