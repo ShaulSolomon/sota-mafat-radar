@@ -68,6 +68,7 @@ parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
 parser.add_argument('--learn_rate', type=float, default=1e-4, help='learn_rate')
 parser.add_argument('--wandb', type=bool, default=False, help='enable WANDB logging')
 parser.add_argument('--epochs', type=int, default=10, help='number of epochs to run')
+parser.add_argument('--full_data_pickle', type=str, default=None, help='pickle file with pre-compiled full_data dataframe')
 
 args = parser.parse_args()
 
@@ -76,6 +77,7 @@ args = parser.parse_args()
 epochs = 10
 batch_size = 32
 lr = 1e-4
+full_data_pickle = 'full_data.pickle'
 
 config = dict()
 
@@ -84,9 +86,13 @@ if 'args' in globals():
     lr = args.learn_rate
     WANDB_enable = args.wandb
     epochs = args.epochs
-    config['num_tracks'] = args.num_tracks
-    config['val_ratio'] = args.val_ratio
+    full_data_pickle = args.full_data_pickle
+    if not path.exists(f"{PATH_DATA}/{full_data_pickle}"):
+        print("args pickle file doesn't exists. abort...")
+        sys.exit()
     
+    config['num_tracks'] = args.num_tracks
+    config['val_ratio'] = args.val_ratio   
     config['get_shifts'] = args.get_shifts
     config['get_horizontal_flip'] = args.get_horizontal_flip
     config['get_vertical_flip'] = args.get_vertical_flip
@@ -146,7 +152,7 @@ else:
 
 #%%
 
-full_data_picklefile = PATH_DATA+'/full_data.pickle'
+full_data_picklefile = f"{PATH_DATA}/{full_data_pickle}"
 if path.exists(full_data_picklefile):
   print('getting full_data from pickle')
   with open(full_data_picklefile, 'rb') as handle:
@@ -249,4 +255,3 @@ submission['prediction'] = submission['prediction'].astype('float')
 
 # Save submission
 submission.to_csv('submission.csv', index=False)
-
