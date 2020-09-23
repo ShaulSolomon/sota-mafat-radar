@@ -49,7 +49,7 @@ def pipeline_trainval(PATH_DATA, config = {}):
   training_dict = get_data.load_data(train_path, PATH_DATA)
 
   # Adding segments from the experiment auxiliary set to the training set
-  # train_dict = get_data.append_dict(training_dict, train_aux)
+  train_dict = get_data.append_dict(training_dict, train_aux)
 
   #split Tracks here to only do augmentation on Train set
   train_dict, val_dict = get_data.split_train_val_as_df(train_dict,ratio= val_ratio)
