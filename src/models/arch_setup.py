@@ -152,10 +152,10 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         val_fpr, val_tpr, _ = roc_curve(val_labels, val_y_hat)
 
         epoch_log = {'epoch': epoch+1,
-                     'loss': tr_loss ,
+                     'loss': tr_loss / tr_size,
                      'auc': auc(tr_fpr, tr_tpr),
                      'acc': accuracy_calc(tr_y_hat,tr_labels),
-                     'val_loss': val_loss ,
+                     'val_loss': val_loss / val_size ,
                      'val_auc': auc(val_fpr,val_tpr),
                      'val_acc': accuracy_calc(val_y_hat,val_labels)}
 
@@ -181,8 +181,8 @@ def plot_loss_train_test(logs,model):
     plt.title(model._get_name())
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
-    plt.plot(range(len(tr_loss)),tr_loss,label="Train");
-    plt.plot(range(len(val_loss)),val_loss,label="Val");
+    plt.plot(range(len(tr_loss)),tr_loss,label="Train")
+    plt.plot(range(len(val_loss)),val_loss,label="Val")
     plt.legend()
     plt.tight_layout()
     plt.show();
