@@ -5,10 +5,16 @@ from sklearn.metrics import roc_auc_score, roc_curve, auc
 import matplotlib.pyplot as plt
 from src.visualization import metrics
 from src.features import specto_feat
-from tqdm import tqdm_notebook as tqdm
+from src.utils import helpers
+from tqdm import *
 
 import logging
 logger = logging.getLogger()
+
+if helpers.isnotebook():
+	mtqdm=tqdm_notebook
+else:
+	mtqdm=tqdm
 
 
 class DS(Dataset):
@@ -67,7 +73,7 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         tr_y_hat = np.array([])
         tr_labels = np.array([])
 
-        tk0 = tqdm(tr_loader, total=int(len(tr_loader)))
+        tk0 = mtqdm(tr_loader, total=int(len(tr_loader)))
 
         #train loop
         for step,batch in enumerate(tk0):

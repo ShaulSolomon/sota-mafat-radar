@@ -87,7 +87,7 @@ if 'args' in globals():
     WANDB_enable = args.wandb
     epochs = args.epochs
     full_data_pickle = args.full_data_pickle
-    if not path.exists(f"{PATH_DATA}/{full_data_pickle}"):
+    if full_data_pickle is not None and not path.exists(f"{PATH_DATA}/{full_data_pickle}"):
         print("args pickle file doesn't exists. abort...")
         sys.exit()
     
@@ -119,7 +119,6 @@ if WANDB_enable == True:
     import wandb
     runname = input("Enter WANDB runname:")
     notes = input("Enter run notes :")
-    wandb.init(project="sota-mafat-base")
     os.environ['WANDB_NOTEBOOK_NAME'] = os.path.splitext(os.path.basename(__file__))[0]	
 
 
