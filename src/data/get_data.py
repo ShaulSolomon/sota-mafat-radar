@@ -499,14 +499,16 @@ def split_train_val_as_df(data,ratio=6):
     target_type vector 
     for training and validation sets
   """
-  idx = ((data['geolocation_id'] == 4) | (data['geolocation_id'] == 1))\
-   & (data['segment_id'] % ratio == 0)
+  idx = ((data['geolocation_id'] == 4) | (data['geolocation_id'] == 1))#\
+   #& (data['segment_id'] % ratio == 0)
+
+  
 
   train_dict = dict()
   val_dict = dict()
   for column in data.keys():
-    train_dict[column] = data[column][np.logical_not(idx)]
-    val_dict[column] = data[column][idx]
+    val_dict[column] = data[column][np.logical_not(idx)]
+    train_dict[column] = data[column][idx]
   return train_dict, val_dict
 
 

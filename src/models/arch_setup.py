@@ -233,8 +233,8 @@ def plot_ROC(train_x, val_x, train_y, val_y, model,device):
         device -- {torch.device} -- cpu/cuda
 
     '''
-    x1 = thresh(model(torch.from_numpy(train_x).to(device).type(torch.float32)).detach().cpu())
-    x2 = thresh(model(torch.from_numpy(val_x).to(device).type(torch.float32)).detach().cpu())
+    x1 = model(torch.from_numpy(train_x).to(device).type(torch.float32)).detach().cpu()
+    x2 = model(torch.from_numpy(val_x).to(device).type(torch.float32)).detach().cpu()
 
     pred = [x1,x2]
 

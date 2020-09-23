@@ -7,12 +7,12 @@ import torch.nn.functional as F
 class TemporalBlock(nn.Module):
     def __init__(self, n_inputs, n_outputs, kernel_size, stride, dilation, padding, dropout=0.2):
         super(TemporalBlock, self).__init__()
-        self.conv1 = weight_norm(nn.Conv2d(n_inputs, n_outputs, (kernel_size, kernel_size),
+        self.conv1 = weight_norm(nn.Conv2d(n_inputs, n_outputs, (1, kernel_size),
                                            stride=stride, padding=0, dilation=dilation))
-        self.pad = torch.nn.ZeroPad2d((0, 0, 0, 0))
+        self.pad = torch.nn.ZeroPad2d((padding, 0, 0, 0))
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout)
-        self.conv2 = weight_norm(nn.Conv2d(n_outputs, n_outputs, (kernel_size, kernel_size),
+        self.conv2 = weight_norm(nn.Conv2d(n_outputs, n_outputs, (1, kernel_size),
                                            stride=stride, padding=0, dilation=dilation))
         self.net = nn.Sequential(self.pad, self.conv1, self.relu, self.dropout,
                                  self.pad, self.conv2, self.relu, self.dropout)
@@ -28,7 +28,7 @@ class TemporalBlock(nn.Module):
             self.downsample.weight.data.normal_(0, 0.01)
 
     def forward(self, x):
-        out = self.net(x)
+        out = self.net(x.unsqueeze(2)).squeeze(2)
         res = x if self.downsample is None else self.downsample(x)
         return self.relu(out + res)
 
@@ -56,10 +56,10 @@ class TCNModel(nn.Module):
     def __init__(self, num_channels, kernel_size=2, dropout=0.2):
         super(TCNModel, self).__init__()
         self.tcn = TemporalConvNet(
-            1, num_channels, kernel_size=kernel_size, dropout=dropout)
+            32, num_channels, kernel_size=kernel_size, dropout=dropout)
         self.dropout = nn.Dropout(dropout)
         self.decoder = nn.Linear(num_channels[-1], 1)
 
     def forward(self, x):
-        x = x.permute(0,3,1,2)
+        x = x.permute(0,2,1)
         return F.sigmoid(self.decoder(self.dropout(self.tcn(x)[:, :, -1])))
