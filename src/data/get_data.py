@@ -363,20 +363,28 @@ def append_dict(dict1, dict2):
         dict1[key] = np.concatenate([dict1[key], dict2[key]], axis=0)
     return dict1
 
+def classic_trainval(PATH_DATA, df_type = 'spectrogram'):
+  """
+  Reads csv as pandas DataFrame (only Metadata).
 
-def classic_trainval(PATH_DATA):
-    # Set and test path to competition data files
-    try:
-        if PATH_DATA == 'INSERT HERE':
-            print('Please enter path to competition data files:')
-            PATH_DATA = input()
+  Arguments:
+    PATH_DATA -- {str} -- path to dataset
+    df type -- {bool} -- train data type, either spectrogram (iq_matrix) or scalogram (3d wavelets) 
 
-        file_path = 'MAFAT RADAR Challenge - Training Set V1.csv'
-        with open(f'{PATH_DATA}{file_path}') as f:
-            f.readlines()
-        print(colored('Everything is setup correctly', color='green'))
-    except:
-        print(colored('Please mount drive and set competition_path correctly',
+
+  """
+  # Set and test path to competition data files
+  try:
+      if PATH_DATA == 'INSERT HERE':
+          print('Please enter path to competition data files:')
+          PATH_DATA = input()
+
+      file_path = 'MAFAT RADAR Challenge - Training Set V1.csv'
+      with open(f'{PATH_DATA}{file_path}') as f:
+        f.readlines()
+      print(colored('Everything is setup correctly', color='green'))
+  except:
+      print(colored('Please mount drive and set competition_path correctly',
                       color='red'))
 
     # Loading and preparing the data
@@ -393,9 +401,10 @@ def classic_trainval(PATH_DATA):
     # Adding segments from the experiment auxiliary set to the training set
     train_df = append_dict(training_df, train_aux)
 
-    # Preprocessing and split the data to training and validation
-    train_df = specto_feat.data_preprocess(train_df.copy())
-    train_x, train_y, val_x, val_y, _ = split_train_val(train_df)
+
+  # Preprocessing and split the data to training and validation
+  train_df = specto_feat.data_preprocess(train_df.copy(),df_type = df_type)
+  train_x, train_y, val_x, val_y, _ = split_train_val(train_df)
 
     val_y = val_y.astype(int)
     train_y = train_y.astype(int)
