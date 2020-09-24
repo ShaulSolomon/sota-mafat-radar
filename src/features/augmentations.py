@@ -1,3 +1,4 @@
+from typing import List
 import numpy as np
 from scipy.ndimage.interpolation import rotate
 from src.features import add_data, specto_feat
@@ -63,22 +64,60 @@ def resplit_track_random(track, start=0, n_splits=5):
     Randomly splits a track into n new segments.
 
     Arguments:
-    track -- {ndarray} -- spectogram created from IQ matrix
+    track -- {ndarray} -- spectogram created from IQ matrix, dimensions (>32, 128)
     start -- {int} -- the starting point of range of possible starting indices for new segments (Default=0)
     n_splits -- {int} number of new segments to create (Default=5)
 
     Returns:
     Dictionary of new segments like {track_index: segment_array}
     """
-    assert track.shape[1] > 32, "Track is too short to re-split"
+
     indices = np.random.choice(range(start, track.shape[1]-32), n_splits)
-    vert_indices = np.random.choice(range(track.shape[1]-128),n_splits)
+    vert_indices = np.random.choice(range(track.shape[1]-128), n_splits)
     segments = {}
     for j, i in enumerate(indices):
         vi = vert_indices[j]
         segment = track[vi:vi+128, i: i+32].copy()
         segments[i] = segment
     return segments
+
+
+def resplit_track_fixed(track: np.ndarray, shift_segment: int = 1) -> List[list]:
+    """
+    Splits a track into N new segments according to formula (track.shape[1]) - 32)/shift_segment.
+
+    Arguments:
+    track -- {ndarray} -- spectogram created from IQ matrix, dimensions (>32, 128)
+    shift_segment -- {int} -- Size of step to shift track to generate new segments
+
+    Returns:
+    Dictionary of new segments like {track_index: segment_array}
+    """
+    indices = range(0, track.shape[1]-32, shift_segment)
+    segments = []
+    for i in indices:
+        segment = track[:, i: i+32].copy()
+        segments.append(segment)
+    return segments
+
+
+def resplit_burst_fixed(burst: np.ndarray, shift_segment: int = 1) -> List[list]:
+    """
+    Splits a doppler burst into N new segments according to formula (len(burst) - 32)/shift_segment.
+
+    Arguments:
+    burst -- {ndarray} -- array with dimensions (>32,)
+    shift_segment -- {int} -- Size of step to shift track to generate new segments
+
+    Returns:
+    Dictionary of new segments like {burst_index: new_burst}
+    """
+    indices = range(0, len(burst)-32, shift_segment)
+    bursts = []
+    for i in indices:
+        new_burst = burst[i: i+32].copy()
+        bursts.append(new_burst)
+    return bursts
 
 
 def split_rotation(data, track_id, angle: int, n_splits=5):
