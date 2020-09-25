@@ -53,7 +53,7 @@ def plot_spectrogram(iq_burst, doppler_burst, color_map_name='parula',
     else:
         color_map = plt.get_cmap(color_map_name)
 
-    iq = calculate_spectrogram(iq_burst, flip=flip)
+    iq = iq_burst
 #     if theta:
 #         iq = rotate_spectogram(iq, theta)
     if return_spec:
