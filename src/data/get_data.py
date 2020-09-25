@@ -36,7 +36,6 @@ from boto import boto
 # The function append_dict is for concatenating the training set
 # with the Auxiliary data set segments
 
-=======
 # import ipdb -> add ipdb.set_trace() where you need the breakpoint
 
 spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
@@ -390,31 +389,31 @@ def classic_trainval(PATH_DATA, df_type = 'spectrogram'):
       print(colored('Please mount drive and set competition_path correctly',
                       color='red'))
 
-    # Loading and preparing the data
-    # Loading Auxiliary Experiment set - can take a few minutes
-    experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
-    experiment_auxiliary_df = load_data(experiment_auxiliary, PATH_DATA)
+  # Loading and preparing the data
+  # Loading Auxiliary Experiment set - can take a few minutes
+  experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
+  experiment_auxiliary_df = load_data(experiment_auxiliary, PATH_DATA)
 
-    train_aux = aux_split(experiment_auxiliary_df)
+  train_aux = aux_split(experiment_auxiliary_df)
 
-    # Training set
-    train_path = 'MAFAT RADAR Challenge - Training Set V1'
-    training_df = load_data(train_path, PATH_DATA)
+  # Training set
+  train_path = 'MAFAT RADAR Challenge - Training Set V1'
+  training_df = load_data(train_path, PATH_DATA)
 
-    # Adding segments from the experiment auxiliary set to the training set
-    train_df = append_dict(training_df, train_aux)
+  # Adding segments from the experiment auxiliary set to the training set
+  train_df = append_dict(training_df, train_aux)
 
 
   # Preprocessing and split the data to training and validation
   train_df = specto_feat.data_preprocess(train_df.copy(),df_type = df_type)
   train_x, train_y, val_x, val_y, _ = split_train_val(train_df)
 
-    val_y = val_y.astype(int)
-    train_y = train_y.astype(int)
-    train_x = train_x.reshape(list(train_x.shape) + [1])
-    val_x = val_x.reshape(list(val_x.shape) + [1])
+  val_y = val_y.astype(int)
+  train_y = train_y.astype(int)
+  train_x = train_x.reshape(list(train_x.shape) + [1])
+  val_x = val_x.reshape(list(val_x.shape) + [1])
 
-    return train_x, train_y, val_x, val_y
+  return train_x, train_y, val_x, val_y
 
 
 def splitArrayBy(idx, pattern):

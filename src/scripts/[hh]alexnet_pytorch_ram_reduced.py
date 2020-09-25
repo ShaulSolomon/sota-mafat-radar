@@ -233,7 +233,7 @@ pred = [model(torch.from_numpy(sample_x).to(device, dtype=torch.float)).detach()
 actual = [sample_y, val_y]
 plt1 = metrics.stats(pred, actual)
 if WANDB_enable:
-    wandb.log({"roc_chart": plt})
+    wandb.log({"roc_chart": plt1})
 
 
 #%%

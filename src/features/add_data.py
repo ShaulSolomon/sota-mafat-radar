@@ -75,18 +75,9 @@ def shifts_from_track(data, shift_by=None):
     pass
     shift_by_list = np.arange(0, 31, shift_by).tolist()
 
-def generate_shifts(full_data, shift_by: int = 1):
-    """
-    generate shifts from the data.
-    Arguments:
-        full_data -- {dataframe} -- dataframe with all data, including  parameters for each segment (geo type+id, snr etc)
-        shift_by -- (int/array) Validation / Test (used in syntehtic test)
-    Returns:
-        dataframe same as input, with appended rows of the shifts appended at the end. column 'augmentation_info' has the
-        instrunctions on how to create the augmentation
+def generate_shifts(data_df,data, shift_by: int = 1):
   """
-  generate shifts from the data. important: pay attention if preprocessing has already been done on the data!!
-  preprocess 'merges' the burst into the iq values.
+  generate shifts from the data.
   Arguments:
     data_df -- {dataframe} -- parameters for each segment (geo type+id, snr etc)
     data -- {ndarray} -- the data set (only iq and burst)
@@ -149,7 +140,7 @@ def generate_shifts(full_data, shift_by: int = 1):
   return new_segments_results
 
 
-def db_add_shifts(data_df,data,shift_by=None):
+def db_add_shifts(full_data,shift_by=None):
   """
   generate shifts from the data.
   Arguments:
