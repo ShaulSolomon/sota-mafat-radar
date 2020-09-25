@@ -191,6 +191,7 @@ def pipeline_trainval_ram_reduced(PATH_DATA, config = {}):
           shift_segment -- {int} -- How much to shift tracks to generate new segments
           get_horizontal_flip -- {bool} -- Flag to add horizontal flips
           get_vertical_flip -- {bool} -- Flag to add vertical flips
+          wavelets -- {bool} -- {bool} -- Flag to transform IQ burst into 3-d 7 channels scalograms
 
   '''
 
@@ -201,6 +202,7 @@ def pipeline_trainval_ram_reduced(PATH_DATA, config = {}):
   get_shifts = config.get('get_shifts',False)
   get_horizontal_flip = config.get('get_horizontal_flip',False)
   get_vertical_flip = config.get('get_vertical_flip',False)
+  wavelets = config.get('wavelets',False)
 
   ##############################
   #####  LOAD RAW DATA    ######
@@ -260,8 +262,28 @@ def pipeline_trainval_ram_reduced(PATH_DATA, config = {}):
   ##########################################
 
   ### OPTIONALLY SPLITTING VAL INTO TEST
+                
+  ###########################################
+  ###             X,y splits              ###
+  ###########################################
+  dt = 'spectrogram'
+  if wavelets == True:
+        dt = 'scalogram'
 
-  return full_data
+
+  train_processed = specto_feat.data_preprocess(train_dict, df_type=dt)
+  train_x = train_processed['iq_sweep_burst']
+  if wavelets == False:
+    train_x = train_x.reshape(list(train_x.shape)+[1])
+  train_y = train_processed['target_type'].astype(int)
+
+  val_processed = specto_feat.data_preprocess(val_dict,df_type=dt)
+  val_x =  val_processed['iq_sweep_burst']
+  if wavelets == False:
+    val_x = val_x.reshape(list(val_x.shape)+[1])
+  val_y = val_processed['target_type'].astype(int)
+
+  return train_x, train_y, val_x, val_y
 
 
 if __name__ == "__main__":

@@ -188,17 +188,16 @@ def data_preprocess(data, df_type = 'spectrogram' , flip = True, kernel = 'cgau1
   X=[]
   if df_type == 'scalogram':
     pbar = tqdm.tqdm(total = len(data['iq_sweep_burst']), position = 0, leave = True)
-  for i in range(len(data['iq_sweep_burst'])):
-    iq = fft(data['iq_sweep_burst'][i])
-    iq = max_value_on_doppler(iq,data['doppler_burst'][i])
-    iq = normalize(iq)
-    if df_type == 'scalogram':
-      X.append(calculate_scalogram(iq, flip = flip, transformation= kernel))
+    for i in range(len(data['iq_sweep_burst'])):
+      X.append(calculate_scalogram(data['iq_sweep_burst'][i], flip = flip, transformation= kernel))
       pbar.update()
-    else:
-      X.append(iq)
-  if df_type == 'scalogram':
     pbar.close()
+  else:
+    for i in range(len(data['iq_sweep_burst'])):
+      iq = fft(data['iq_sweep_burst'][i])
+      iq = max_value_on_doppler(iq,data['doppler_burst'][i])
+      iq = normalize(iq)
+      X.append(iq)
   data['iq_sweep_burst'] = np.array(X)
 
   if 'target_type' in data:
@@ -226,11 +225,13 @@ def calculate_scalogram(iq_matrix, flip=True, transformation = 'cgau1'):
 
     
     scalograms = []
-    #analyze each column (time-point) seperatly
+    #analyze each column (time-point) seperatly.
+    iq_matrix = normalize(iq_matrix)
     for j in range(iq_matrix.shape[1]):
         # preform hann smoothing on a column - results in a singal j-2 sized column
         # preform py.cwt transformation, returns coefficients and frequencies
-        coef, freqs=pywt.cwt(hann(iq_matrix[:, j][:, np.newaxis]), np.arange(1,8), transformation)
+        
+        coef, freqs=pywt.cwt(hann(iq_matrix[:, j][:, np.newaxis]), np.arange(1,9), transformation)
         # coefficient matrix returns as a (num_scalers-1, j-2 , 1) array, transform it into a 2-d array
 
         if flip:
@@ -238,12 +239,13 @@ def calculate_scalogram(iq_matrix, flip=True, transformation = 'cgau1'):
         # log normalization of the data
         coef=np.log(np.abs(coef))
         # first column correspond to the scales, rest is the coefficients
-        coef=coef[:, 1:,0]
-        coef=coef.T
+        coef=coef[:, :,0]
+        
         scalograms.append(coef)
 
     stacked_scalogram = np.stack(scalograms)
     stacked_scalogram = np.maximum(np.median(stacked_scalogram) - 1., stacked_scalogram)
+    stacked_scalogram = np.transpose(stacked_scalogram,(2,0,1))
     return stacked_scalogram
 
 
