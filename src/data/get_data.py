@@ -1,5 +1,6 @@
 # import sys
 # sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
+import math
 
 import numpy as np
 import os
@@ -366,54 +367,53 @@ def append_dict(dict1, dict2):
     return dict1
 
 def classic_trainval(PATH_DATA, df_type = 'spectrogram'):
-  """
-  Reads csv as pandas DataFrame (only Metadata).
+    """
+    Reads csv as pandas DataFrame (only Metadata).
 
-  Arguments:
-    PATH_DATA -- {str} -- path to dataset
-    df type -- {bool} -- train data type, either spectrogram (iq_matrix) or scalogram (3d wavelets)
-
-
-  """
-  # Set and test path to competition data files
-  try:
-      if PATH_DATA == 'INSERT HERE':
-          print('Please enter path to competition data files:')
-          PATH_DATA = input()
-
-      file_path = 'MAFAT RADAR Challenge - Training Set V1.csv'
-      with open(f'{PATH_DATA}{file_path}') as f:
-        f.readlines()
-      print(colored('Everything is setup correctly', color='green'))
-  except:
-      print(colored('Please mount drive and set competition_path correctly',
-                      color='red'))
-
-  # Loading and preparing the data
-  # Loading Auxiliary Experiment set - can take a few minutes
-  experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
-  experiment_auxiliary_df = load_data(experiment_auxiliary, PATH_DATA)
-
-  train_aux = aux_split(experiment_auxiliary_df)
-
-  # Training set
-  train_path = 'MAFAT RADAR Challenge - Training Set V1'
-  training_df = load_data(train_path, PATH_DATA)
-
-  # Adding segments from the experiment auxiliary set to the training set
-  train_df = append_dict(training_df, train_aux)
+    Arguments:
+        PATH_DATA -- {str} -- path to dataset
+        df type -- {bool} -- train data type, either spectrogram (iq_matrix) or scalogram (3d wavelets)
 
 
-  # Preprocessing and split the data to training and validation
-  train_df = specto_feat.data_preprocess(train_df.copy(),df_type = df_type)
-  train_x, train_y, val_x, val_y, _ = split_train_val(train_df)
+    """
+    # Set and test path to competition data files
+    try:
+        if PATH_DATA == 'INSERT HERE':
+            print('Please enter path to competition data files:')
+            PATH_DATA = input()
 
-  val_y = val_y.astype(int)
-  train_y = train_y.astype(int)
-  train_x = train_x.reshape(list(train_x.shape) + [1])
-  val_x = val_x.reshape(list(val_x.shape) + [1])
+        file_path = 'MAFAT RADAR Challenge - Training Set V1.csv'
+        with open(f'{PATH_DATA}{file_path}') as f:
+            f.readlines()
+        print(colored('Everything is setup correctly', color='green'))
+    except:
+        print(colored('Please mount drive and set competition_path correctly', color='red'))
 
-  return train_x, train_y, val_x, val_y
+    # Loading and preparing the data
+    # Loading Auxiliary Experiment set - can take a few minutes
+    experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
+    experiment_auxiliary_df = load_data(experiment_auxiliary, PATH_DATA)
+
+    train_aux = aux_split(experiment_auxiliary_df)
+
+    # Training set
+    train_path = 'MAFAT RADAR Challenge - Training Set V1'
+    training_df = load_data(train_path, PATH_DATA)
+
+    # Adding segments from the experiment auxiliary set to the training set
+    train_df = append_dict(training_df, train_aux)
+
+
+    # Preprocessing and split the data to training and validation
+    train_df = specto_feat.data_preprocess(train_df.copy(), df_type=df_type)
+    train_x, train_y, val_x, val_y, _ = split_train_val(train_df)
+
+    val_y = val_y.astype(int)
+    train_y = train_y.astype(int)
+    train_x = train_x.reshape(list(train_x.shape) + [1])
+    val_x = val_x.reshape(list(val_x.shape) + [1])
+
+    return train_x, train_y, val_x, val_y
 
 
 def splitArrayBy(idx, pattern):

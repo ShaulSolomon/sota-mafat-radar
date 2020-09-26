@@ -14,14 +14,15 @@ from src.utils import helpers
 from tqdm import *
 import logging
 from collections import Counter
+
 matplotlib.use('Agg')
 
 logger = logging.getLogger()
 
 if helpers.isnotebook():
-	mtqdm=tqdm_notebook
+    mtqdm = tqdm_notebook
 else:
-	mtqdm=tqdm
+    mtqdm = tqdm
 
 
 def filter_usable_segments(data: dict) -> dict:
@@ -53,7 +54,7 @@ def filter_usable_segments(data: dict) -> dict:
                     labels.append(data['target_type'][i])
                     # previous_usable = False
                     # previous_i = i+1
-            previous_i = i+1
+            previous_i = i + 1
             previous_usable = False
         else:
             previous_usable = True
@@ -76,11 +77,11 @@ def create_new_segments_from_splits(data_dict: dict, shift_segment: int) -> dict
     new_labels = []
     for i, track in enumerate(data_dict['tracks']):
         if track.shape[1] > 32:
-                track = resplit_track_fixed(track=track, shift_segment=shift_segment)
-                burst = resplit_burst_fixed(burst=data_dict['bursts'][i], shift_segment=shift_segment)
-                new_segments.extend(track)
-                new_bursts.extend(burst)
-                new_labels.extend([data_dict['labels'][i]] * len(burst))
+            track = resplit_track_fixed(track=track, shift_segment=shift_segment)
+            burst = resplit_burst_fixed(burst=data_dict['bursts'][i], shift_segment=shift_segment)
+            new_segments.extend(track)
+            new_bursts.extend(burst)
+            new_labels.extend([data_dict['labels'][i]] * len(burst))
         else:
             new_segments.extend(track)
             new_bursts.extend(data_dict['bursts'][i])
@@ -95,9 +96,6 @@ def create_flipped_segments(data_dict: dict, flip_type: str = 'vertical'):
             data -- {dict} -- contains keys:  {tracks', 'bursts', 'labels'}
             flip_type {str} -- indicate whether to perform horizontal or vertical flips
     """
-    segments = data_dict['segments']
-    bursts = data_dict['bursts']
-    labels = data_dict['labels']
     flip = None
     if flip_type == 'vertical':
         flip = vertical_flip
@@ -142,7 +140,6 @@ def segments_generator(data: dict, config: dict) -> dict:
         flips = create_flipped_segments(resplit_data, flip_type='horizontal')
         resplit_data = dict(Counter(resplit_data) + Counter(flips))
     return resplit_data
-
 
 
 class TrackDS(Dataset):
@@ -209,7 +206,6 @@ class DS2(IterableDataset):
         return chain.from_iterable(self.process_data())
 
 
-
 def pretty_log(log):
     for key, value in log.items():
         value_s = value if type(value) == "int" else "{:.4f}".format(value)
@@ -220,11 +216,13 @@ def pretty_log(log):
 def thresh(output, thresh_hold=0.5):
     return [0 if x < thresh_hold else 1 for x in output]
 
+
 def accuracy_calc(outputs, labels):
     # print("acc1:",outputs, labels)
     preds = thresh(outputs)
     # print("acc2:",preds)
     return np.sum(preds == labels) / len(preds)
+
 
 def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs, device, train_y, val_y, log=None,
                  WANDB_enable=False, wandb=None):
@@ -243,15 +241,14 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
         tr_y_hat = np.array([])
         tr_labels = np.array([])
 
-
         tk0 = mtqdm(tr_loader, total=int(len(tr_loader)))
 
-        #train loop
-        for step,batch in enumerate(tk0):
+        # train loop
+        for step, batch in enumerate(tk0):
 
-            if (step %100==0):
+            if step % 100 == 0:
                 logger.info(f"step {step}")
-              
+
             data, labels = batch
             tr_labels = np.append(tr_labels, labels)
 
@@ -284,18 +281,17 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
             tr_loss += loss.item()
             tr_size += data.shape[0]
 
-            #if torch.cuda.is_available():
+            # if torch.cuda.is_available():
             #    tr_y_hat = np.append(tr_y_hat,outputs.detach().cpu().numpy())
-            #else:
+            # else:
             #    tr_y_hat = np.append(tr_y_hat,outputs.detach().numpy())
-
 
             tr_y_hat = np.append(tr_y_hat, outputs.detach().cpu().numpy())
 
-            #output_t = outputs.detach().cpu().numpy()
-            #print(f"output_t:{output_t}")
+            # output_t = outputs.detach().cpu().numpy()
+            # print(f"output_t:{output_t}")
 
-            #logger.info(f"tr_y_hat:{list(tr_y_hat)}")
+            # logger.info(f"tr_y_hat:{list(tr_y_hat)}")
 
             optimizer.step()
             optimizer.zero_grad()
@@ -310,7 +306,7 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
 
         logger.info("start validation")
 
-        #validation loop
+        # validation loop
 
         for step, batch in enumerate(val_loader):
 
@@ -358,7 +354,7 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
 
         training_log.append(epoch_log)
 
-        if WANDB_enable == True:
+        if WANDB_enable:
             wandb.log(epoch_log)
 
     return training_log
@@ -383,7 +379,7 @@ def plot_loss_train_test(logs, model):
 
 
 def plot_ROC_local_gpu(train_loader, val_loader, model, device):
-    '''
+    """
     Working on a local GPU, there is limited space and therefore a need to run the ROC examples in batches.
 
     Outputs ROC plot as defined in utils.stats
@@ -394,7 +390,7 @@ def plot_ROC_local_gpu(train_loader, val_loader, model, device):
         model -- {nn.Module} -- pytorch model
         device -- {torch.device} -- cpu/cuda
 
-    '''
+    """
     tr_y = np.array([])
     tr_y_hat = np.array([])
     vl_y = np.array([])
@@ -414,7 +410,7 @@ def plot_ROC_local_gpu(train_loader, val_loader, model, device):
 
 
 def plot_ROC(train_x, val_x, train_y, val_y, model, device):
-    '''
+    """
     Outputs ROC plot as defined in utils.stats
 
     Arguments:
@@ -425,7 +421,7 @@ def plot_ROC(train_x, val_x, train_y, val_y, model, device):
         model -- {nn.Module} -- pytorch model
         device -- {torch.device} -- cpu/cuda
 
-    '''
+    """
     x1 = thresh(model(torch.from_numpy(train_x).to(device).type(torch.float32)).detach().cpu())
     x2 = thresh(model(torch.from_numpy(val_x).to(device).type(torch.float32)).detach().cpu())
 
