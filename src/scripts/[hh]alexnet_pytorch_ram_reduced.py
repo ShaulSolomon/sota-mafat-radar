@@ -69,6 +69,7 @@ parser.add_argument('--learn_rate', type=float, default=1e-4, help='learn_rate')
 parser.add_argument('--wandb', type=bool, default=False, help='enable WANDB logging')
 parser.add_argument('--epochs', type=int, default=10, help='number of epochs to run')
 parser.add_argument('--full_data_pickle', type=str, default=None, help='pickle file with pre-compiled full_data dataframe')
+parser.add_argument('--pickle_save_fullpath', type=str, default=None, help='if provided, save the full_data dataframe to a different location (should be absolute path)')
 
 args = parser.parse_args()
 
@@ -78,6 +79,7 @@ epochs = 10
 batch_size = 32
 lr = 1e-4
 full_data_pickle = 'full_data.pickle'
+pickle_save_fullpath = None
 
 config = dict()
 
@@ -98,6 +100,8 @@ if 'args' in globals():
     config['get_vertical_flip'] = args.get_vertical_flip
     if args.shift_segment is not None:
         config['shift_segment'] = helpers.parse_range_list(args.shift_segment)
+    if args.pickle_save_fullpath is not None:
+        pickle_save_fullpath = f"{args.pickle_save_fullpath}/{full_data_pickle}"  
 
 else:
     config['num_tracks'] = 0
@@ -152,16 +156,23 @@ else:
 #%%
 
 full_data_picklefile = f"{PATH_DATA}/{full_data_pickle}"
+if pickle_save_fullpath is None:
+    pickle_save_fullpath = full_data_picklefile
+
 if path.exists(full_data_picklefile):
-  print('getting full_data from pickle')
-  with open(full_data_picklefile, 'rb') as handle:
-      full_data = pickle.load(handle)
+    print('getting full_data from pickle')
+    with open(full_data_picklefile, 'rb') as handle:
+        full_data = pickle.load(handle)
 else:
-  print('regenerating full_data')
-  full_data = get_data_pipeline.pipeline_trainval_ram_reduced(PATH_DATA, config)
-  ## SAVE TO PICKLE
-  with open(full_data_picklefile, 'wb') as handle:
-      pickle.dump(full_data, handle,protocol=pickle.HIGHEST_PROTOCOL)
+    print('regenerating full_data')
+    if "s3://" in pickle_save_fullpath:
+        print("Can't save to s3. Use `pickle_save_fullpath` option. Abort...")
+        sys.exit()
+    
+    full_data = get_data_pipeline.pipeline_trainval_ram_reduced(PATH_DATA, config)
+    ## SAVE TO PICKLE
+    with open(pickle_save_fullpath, 'wb') as handle:
+        pickle.dump(full_data, handle,protocol=pickle.HIGHEST_PROTOCOL)
 
 print(len(full_data[full_data.is_validation==False]))
 print(len(full_data[full_data.is_validation==True]))

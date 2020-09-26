@@ -1,3 +1,13 @@
+"""
+script to download all data from s3 folder. you will need to do 'aws configure' on host before run. 
+If you don't have it, then install using:
+
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+"""
+
 import os
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
@@ -11,7 +21,6 @@ import numpy as np
 from configparser import ConfigParser
 import json
 import pickle
-
 
 import configparser
 import os.path
@@ -42,5 +51,6 @@ mybucket = conn.get_bucket(BUCKET)
 for key_name in mybucket.list():
     if (".csv" in str(key_name)) or (".pkl" in str(key_name)):
         key = mybucket.get_key(key_name.key)
+        print(f"getting:{key_name.name}")
         key.get_contents_to_filename(f"{PATH_DATA}/{key_name.name}")
 

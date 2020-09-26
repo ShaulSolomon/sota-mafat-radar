@@ -15,30 +15,6 @@ from boto import s3
 import boto3
 from boto import boto
 
-# import matplotlib.pyplot as plt
-# from sklearn.metrics import confusion_matrix
-# import itertools
-# from matplotlib.colors import LinearSegmentedColormap
-# import configparser
-# import matplotlib.patches as patches
-# import math
-# from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
-# from sklearn.manifold import TSNE
-
-# ### fetch the credentials ###
-# creds_path = "credentials.ini"
-# config_parser = configparser.ConfigParser()
-# config_parser.read(creds_path)
-
-# PATH_ROOT = config_parser['MAIN']["PATH_ROOT"]
-# PATH_DATA = config_parser['MAIN']["PATH_DATA"]
-# #####
-
-# The function append_dict is for concatenating the training set
-# with the Auxiliary data set segments
-
-# import ipdb -> add ipdb.set_trace() where you need the breakpoint
-
 spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
                              [2.444e-01, 1.534e-01, 6.728e-01],
                              [2.464e-01, 1.569e-01, 6.847e-01],
@@ -297,9 +273,6 @@ spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
                              [9.769e-01, 9.839e-01, 8.050e-02]])
 
 
-# np.save('./data/cmap.npy', spectrogram_cmap)
-
-
 def load_data(file_path, folder=None):
     """
   Reads all data files (metadata and signal matrix data) as python dictionary,
@@ -333,6 +306,14 @@ def load_pkl_data(file_path, folder=None):
   Returns:
     Python dictionary
   """
+
+    if "s3://" in folder:
+      BUCKET='sota-mafat'
+      s3 = boto3.resource('s3')
+      print(f"getting pkl s3:{file_path}")
+      output = pickle.loads(s3.Bucket("sota-mafat").Object(f"{file_path}.pkl").get()['Body'].read())
+      return output
+    
     if folder is not None:
         path = os.path.join(folder, file_path + '.pkl')
     else:
@@ -352,6 +333,15 @@ def load_csv_metadata(file_path, folder=None):
   Returns:
     Pandas DataFarme
   """
+
+    if "s3://" in folder:
+      BUCKET='sota-mafat'
+      s3 = boto3.client('s3')
+      print(f"getting csv s3:{file_path}")
+      obj = s3.get_object(Bucket=BUCKET, Key=f"{file_path}.csv")
+      output = pd.read_csv(obj['Body'])
+      return output
+
     if folder is not None:
         path = os.path.join(folder, file_path + '.csv')
     else:
