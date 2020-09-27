@@ -49,7 +49,7 @@ class alex_mdf_model(nn.Module):
 
     def forward(self,x):
         x = x.permute(3,1,2,0)
-        #x = x.repeat(3,1,1,1)
+        x = x.repeat(3,1,1,1)
         x = x.permute(3,0,1,2)
         x = self.arch(x)
         return torch.sigmoid(x)

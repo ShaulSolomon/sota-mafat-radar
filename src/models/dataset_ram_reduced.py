@@ -100,7 +100,7 @@ class DS(Dataset):
                 if augment_info['type'] == 'flip':
                     if augment_info['mode'] == 'vertical':
                         data['iq_sweep_burst'] = np.flip(data['iq_sweep_burst'], 0)
-                        data['doppler_burst'] = np.abs(128-data['doppler_burst'])
+                        data['doppler_burst'] = np.abs(128-data['doppler_burst'][0])
 
                     if augment_info['mode'] == 'horizontal':
                         data['iq_sweep_burst'] = np.flip(data['iq_sweep_burst'], 1)

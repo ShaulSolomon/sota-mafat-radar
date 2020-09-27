@@ -4,9 +4,15 @@ import pickle
 import pandas as pd
 import psutil
 import sys
-from tqdm import tqdm_notebook as tqdm
 from src.data.feat_data import has_single_snr_type
+from src.utils import helpers
+from tqdm import *
 import logging
+
+if helpers.isnotebook():
+    mtqdm = tqdm_notebook
+else:
+    mtqdm = tqdm
 
 logger = logging.getLogger()
 
@@ -153,7 +159,7 @@ def db_add_shifts(full_data, shift_by=None):
         logger.info(f"shift:{shift_by_i}")
         print(f"shift:{shift_by_i}")
 
-        for track_id_t in tqdm(all_track_ids):
+        for track_id_t in mtqdm(all_track_ids):
 
             logger.info(
                 f"track:{track_id_t} | ram:{psutil.virtual_memory().percent},{sys.getsizeof(new_segments_results)}")
