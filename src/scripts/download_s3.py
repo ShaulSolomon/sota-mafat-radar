@@ -34,11 +34,13 @@ for creds_path in creds_path_ar:
     if path.exists(creds_path):
         config_parser = configparser.ConfigParser()
         config_parser.read(creds_path)
+        AWS_ACCESS_KEY = config_parser['MAIN']['AWS_ACCESS_KEY']
+        AWS_ACCESS_SECRET_KEY = config_parser['MAIN']['AWS_ACCESS_SECRET_KEY']
         PATH_ROOT = config_parser['MAIN']['PATH_ROOT']
         PATH_DATA = config_parser['MAIN']['PATH_DATA']
         break
 
-cred = boto3.Session().get_credentials()
+cred = boto3.Session(aws_access_key_id = AWS_ACCESS_KEY, aws_secret_access_key = AWS_ACCESS_SECRET_KEY).get_credentials()
 ACCESS_KEY = cred.access_key
 SECRET_KEY = cred.secret_key
 
