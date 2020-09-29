@@ -46,7 +46,7 @@ from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
 from matplotlib.colors import LinearSegmentedColormap
 from termcolor import colored
 
-from src.data import feat_data, get_data, get_data_pipeline
+from src.data import feat_data, get_data, get_data_pipeline, smote_balance
 from src.models import arch_setup, alex_model, dataset_ram_reduced
 from src.features import specto_feat,add_data
 from src.visualization import metrics
@@ -70,6 +70,7 @@ parser.add_argument('--wandb', type=bool, default=False, help='enable WANDB logg
 parser.add_argument('--epochs', type=int, default=10, help='number of epochs to run')
 parser.add_argument('--full_data_pickle', type=str, default=None, help='pickle file with pre-compiled full_data dataframe')
 parser.add_argument('--pickle_save_fullpath', type=str, default=None, help='if provided, save the full_data dataframe to a different location (should be absolute path)')
+parser.add_argument('--smote', type=bool, default=False, help='run smote algorythm for imbalance datasets')
 
 args = parser.parse_args()
 
@@ -80,13 +81,14 @@ batch_size = 32
 lr = 1e-4
 full_data_pickle = 'full_data.pickle'
 pickle_save_fullpath = None
-
+SMOTE_enable = False
 config = dict()
 
 if 'args' in globals():
     batch_size = args.batch_size
     lr = args.learn_rate
     WANDB_enable = args.wandb
+    SMOTE_enable = args.smote
     epochs = args.epochs
     full_data_pickle = args.full_data_pickle
     if full_data_pickle is not None and not path.exists(f"{PATH_DATA}/{full_data_pickle}"):
@@ -185,8 +187,12 @@ val_set= dataset_ram_reduced.DS(full_data[full_data.is_validation==True])
 train_y = np.array(full_data[full_data.is_validation==False]['target_type']=='human').astype(int)
 val_y = np.array(full_data[full_data.is_validation==True]['target_type']=='human').astype(int)
 
-train_loader=DataLoader(dataset= train_set, batch_size = batch_size, shuffle = True, num_workers = 2)
 val_loader=DataLoader(dataset= val_set, batch_size = batch_size, shuffle = True, num_workers = 2)
+
+if SMOTE_enable:
+    train_set = smote_balance.run_smote(train_set,train_y)
+
+train_loader=DataLoader(dataset= train_set, batch_size = batch_size, shuffle = True, num_workers = 2)
 
 #%%
 
@@ -243,8 +249,11 @@ pred = [model(torch.from_numpy(sample_x).to(device, dtype=torch.float)).detach()
         model(torch.from_numpy(val_x).to(device, dtype=torch.float)).detach().cpu().numpy()]
 actual = [sample_y, val_y]
 plt1 = metrics.stats(pred, actual)
+plt1.savefig("roc_chart.png")
+
 if WANDB_enable:
     wandb.log({"roc_chart": plt1})
+    wandb.save("roc_chart.png")
 
 
 #%%
