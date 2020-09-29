@@ -127,13 +127,25 @@ def pipeline_trainval(PATH_DATA, config={}):
     logger.info(
         f"training_dict({training_dict['date_index'].shape}) + aux dataset({train_aux['date_index'].shape}) = full train({train_dict['date_index'].shape})")
 
+    ####################################
+    ## Add scalograms to dictionary ##
+    ####################################
+
+    
+    
     full_data = pd.DataFrame.from_dict(train_dict, orient='index').transpose()
 
     # split Tracks here to only do augmentation on train set
-    full_data = get_data.split_train_val_as_df(full_data, ratio=val_ratio)
+    
+    full_data = get_data.split_train_val_as_pd(full_data, ratio=val_ratio)
 
+    if wavelets:
+      train_dict = specto_feat.data_preprocess(train_dict)
+
+    '''
     logger.info(
         f"train only:{len(full_data[full_data.is_validation == False])}.  val only:{len(full_data[full_data.is_validation == True])}")
+    '''
 
     # to free ram space
     del experiment_auxiliary_df
@@ -144,7 +156,7 @@ def pipeline_trainval(PATH_DATA, config={}):
     ###################################
     ##  ADD DATA (VIA AUGMENTATIONS) ##
     ###################################
-
+    '''
     full_data['augmentation_info'] = []
 
     if get_shifts:
@@ -155,6 +167,18 @@ def pipeline_trainval(PATH_DATA, config={}):
 
     if get_horizontal_flip:
         full_data = add_data.generate_flips(full_data, type='horizontal')
+    '''
+
+    if get_shifts:
+      full_data = add_data.db_add_shifts(full_data,shift_by=shift_segment)
+
+    if get_vertical_flip:
+      full_data = add_data.db_add_flips(full_data,mode='vertical')
+
+    if get_horizontal_flip:
+      full_data = add_data.db_add_flips(full_data,mode='horizontal')
+
+
 
     ##########################################
     ### TRANSFORMATIONS / DATA ENGINEERING ###
@@ -230,6 +254,9 @@ def pipeline_trainval_ram_reduced(PATH_DATA, config = {}):
     del experiment_auxiliary_df
     del train_aux
 
+  #if wavelets:
+  #  train_dict = specto_feat.data_preprocess(train_dict) 
+
   full_data = pd.DataFrame.from_dict(train_dict,orient='index').transpose()
 
   #split Tracks here to only do augmentation on train set
@@ -266,6 +293,7 @@ def pipeline_trainval_ram_reduced(PATH_DATA, config = {}):
   ###########################################
   ###             X,y splits              ###
   ###########################################
+  '''
   dt = 'spectrogram'
   if wavelets == True:
         dt = 'scalogram'
@@ -282,8 +310,8 @@ def pipeline_trainval_ram_reduced(PATH_DATA, config = {}):
   if wavelets == False:
     val_x = val_x.reshape(list(val_x.shape)+[1])
   val_y = val_processed['target_type'].astype(int)
-
-  return train_x, train_y, val_x, val_y
+  '''
+  return full_data
 
 
 if __name__ == "__main__":

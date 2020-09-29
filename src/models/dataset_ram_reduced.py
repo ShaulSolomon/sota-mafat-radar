@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.metrics import roc_auc_score, roc_curve, auc
 import matplotlib.pyplot as plt
 from src.visualization import metrics
-from src.features import specto_feat
+from src.features import specto_feat, augmentations
 from tqdm import tqdm_notebook as tqdm
 
 import logging
@@ -12,10 +12,11 @@ logger = logging.getLogger()
 
 
 class DS(Dataset):
-    def __init__(self,df):
+    def __init__(self,df, data_type = 'spectrogram'):
         """
         Arguments:
         df -- {dataframe} -- data. expected columns: target_type (labels), doppler_burst, iq_sweep_burst, augmentation_info
+        data_type -- {str} -- indidcator for which type of data we are using as input, either spectrogram (default) or scalogram
 
         index is expected to be in ascending order, but it might contain holes!
         index should be the same as segment_id.
@@ -24,6 +25,7 @@ class DS(Dataset):
 
         super().__init__()
         self.df=df
+        self.data_type = data_type
 
     def __len__(self):
         return len(self.df)
@@ -87,25 +89,27 @@ class DS(Dataset):
         #print(f"data_inner3:{data_inner_o}")
 
         # do preprocess
-        data = specto_feat.data_preprocess(data_inner_o)
-        data['target_type'] = np.array(int(data['target_type'][0]),dtype='int64')
-
         #print(f"data:{data}")
 
         # augementations
         # do flips (if needed)
-        if 'augmentation_info' in data.keys():
-            for augment_info in data['augmentation_info'][0]: # the [0] is because we added [] in the data_inner_o
+        if 'augmentation_info' in data_inner_o.keys():
+            for augment_info in data_inner_o['augmentation_info'][0]: # the [0] is because we added [] in the data_inner_o
                 #print(f"augment_info:{augment_info}")
                 if augment_info['type']=='flip':
-                    if augment_info['mode']=='veritcal':
-                        data['iq_sweep_burst'] = np.flip(data['iq_sweep_burst'],0)
-                        data['doppler_burst'] = np.abs(128-data['doppler_burst'])
+                    if augment_info['mode']=='vertical':
+                        data_inner_o['iq_sweep_burst'] = augmentations.vertical_flip(data_inner_o['iq_sweep_burst'])
+                        data_inner_o['doppler_burst'] = np.abs(128-data_inner_o['doppler_burst'])
 
                     if augment_info['mode']=='horizontal':
-                        data['iq_sweep_burst'] = np.flip(data['iq_sweep_burst'],1)
-                        data['doppler_burst'] = np.flip(data['doppler_burst'])
+                        data_inner_o['iq_sweep_burst'] = augmentations.horizontal_flip(data_inner_o['iq_sweep_burst'])
+                        data_inner_o['doppler_burst'] = np.flip(data_inner_o['doppler_burst'])
 
+        # do preprocess
+    
+        data = specto_feat.data_preprocess(data_inner_o, df_type = self.data_type)
+        data['target_type'] = np.array(int(data['target_type'][0]),dtype='int64')
+        
         label2model = data['target_type']
         data2model = data['iq_sweep_burst']
 

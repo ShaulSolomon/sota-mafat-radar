@@ -66,7 +66,9 @@ class alex_3d(nn.Module):
 
     def forward(self, x):
         # Set 1
-        #x = x.permute(0,4,1,2,3)
+        #x = torch.unsqueeze(x,-1)
+
+        x = x.permute(0,3,1,2,4)
         out = self.conv_layer1(x)
         out = self.conv_layer2(out)
         out = self.conv_layer3(out)

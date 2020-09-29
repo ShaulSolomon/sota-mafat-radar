@@ -255,6 +255,7 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
             data, labels = batch
             tr_labels = np.append(tr_labels, labels)
 
+
             data = data.to(device, dtype=torch.float32)
             labels = labels.to(device, dtype=torch.float32)
 

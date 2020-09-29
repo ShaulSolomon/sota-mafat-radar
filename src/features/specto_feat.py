@@ -187,11 +187,11 @@ def data_preprocess(data, df_type = 'spectrogram' , flip = True, kernel = 'cgau1
   """
   X=[]
   if df_type == 'scalogram':
-    pbar = tqdm.tqdm(total = len(data['iq_sweep_burst']), position = 0, leave = True)
+    #pbar = tqdm.tqdm(total = len(data['iq_sweep_burst']), position = 0, leave = True)
     for i in range(len(data['iq_sweep_burst'])):
       X.append(calculate_scalogram(data['iq_sweep_burst'][i], flip = flip, transformation= kernel))
-      pbar.update()
-    pbar.close()
+      #pbar.update()
+    #pbar.close()
   else:
     for i in range(len(data['iq_sweep_burst'])):
       iq = fft(data['iq_sweep_burst'][i])
@@ -233,6 +233,7 @@ def calculate_scalogram(iq_matrix, flip=True, transformation = 'cgau1'):
         
         coef, freqs=pywt.cwt(hann(iq_matrix[:, j][:, np.newaxis]), np.arange(1,9), transformation)
         # coefficient matrix returns as a (num_scalers-1, j-2 , 1) array, transform it into a 2-d array
+        # note: the feqs is a returned value from cwt function that we don't use
 
         if flip:
             coef = np.flip(coef, axis=0)

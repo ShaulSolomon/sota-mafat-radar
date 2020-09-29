@@ -55,7 +55,7 @@ def concatenate_track(data, track_id, snr_plot='both', return_indices=False):
 
     # print(f"iq_list:{iq_list}. shape:{iq_list[0].shape}. len:{len(iq_list)}")
 
-    iq_matrix = np.concatenate(iq_list, axis=-1)
+    iq_matrix = np.concatenate(iq_list, axis=1)
     doppler_vector = np.concatenate(doppler_list, axis=-1)
     if return_indices:
         return iq_matrix, doppler_vector, track_indices
@@ -221,7 +221,7 @@ def db_add_shifts(full_data,shift_by=None):
             full_data = full_data.append(new_segments_results, ignore_index=True)
             logger.info(f"cnt:{count}. new seg:{new_seg_start}-{new_seg_start+32}. track:{track_id_t}. len:{len(full_data)}")
 
-          logger.handlers[0].flush()
+          #logger.handlers[0].flush()
 
   return full_data
 
