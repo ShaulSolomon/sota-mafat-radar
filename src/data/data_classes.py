@@ -1,6 +1,7 @@
 from typing import Dict, TypedDict, List, Any, Union
 import numpy as np
 import pandas as pd
+import pywt
 from pandas import Series, DataFrame
 from torch.utils.data import Dataset, IterableDataset, DataLoader
 
@@ -24,6 +25,8 @@ class _Config(TypedDict):
     get_horizontal_flip: bool
     get_vertical_flip: bool
     wavelets: bool
+    mother_wavelet: str
+    wavelet_scale: int
 
 
 class _Segment(TypedDict):
@@ -42,32 +45,116 @@ class _Segment(TypedDict):
 
 
 class Segment(object):
-    def __init__(self, **kwargs):
+    def __init__(self, config: _Config, **kwargs):
+        self.config = config
         self.segment_dict = _Segment(**kwargs)
 
-    def iq_to_spectogram(self, doppler: bool = False):
-        # TODO function for turning IQ matrix into spectogram, with option of adding doppler burst
-        assert False
+    @staticmethod
+    def hann(iq, window=None):
+        """
+        Hann smoothing of 'iq_sweep_burst'.
 
-    def iq_to_scalogram(self):
-        # TODO function for turning IQ matrix into scalogram
-        assert False
+        Arguments:
+          iq -- {ndarray} -- 'iq_sweep_burst' array
+          window -- Range of Hann window indices (Default=None)
+            If None the whole column is taken
+          Returns:
+            Regularized iq shaped as (window[1] - window[0] - 2, iq.shape[1])
+          """
+        if window is None:
+            window = [0, len(iq)]
 
-    def flip_iq_horizontal(self):
-        # TODO function to flip segment-as-IQ matrix horizontally
-        assert False
+        N = window[1] - window[0] - 1
+        n = np.arange(window[0], window[1])
+        n = n.reshape(len(n), 1)
+        hannCol = 0.5 * (1 - np.cos(2 * np.pi * (n / N)))
+        return (hannCol * iq[window[0]:window[1]])[1:-1]
 
-    def flip_iq_vertical(self):
-        # TODO function to flip segment-as-IQ matrix vertically
-        assert False
+    @staticmethod
+    def normalize(iq):
+        """
+        Calculates normalized values for iq_sweep_burst matrix:
+        (vlaue-mean)/std.
+        """
+        m = iq.mean()
+        s = iq.std()
+        return (iq - m) / s
 
-    def flip_spectogram_horizontal(self):
-        # TODO function to flip segment-as-spectogram horizontally
-        assert False
+    def iq_to_spectogram(self, axis=0, doppler: bool = False):
+        """
+        Calculates spectrogram of 'iq_sweep_burst'.
 
-    def flip_spectogram_vertical(self):
-        # TODO function to flip segment-as-spectogram vertically
-        assert False
+        Arguments:
+            iq_burst -- {ndarray} -- 'iq_sweep_burst' array
+            axis -- {int} -- axis to perform DFT in (Default = 0)
+
+        Returns:
+        Transformed iq_burst array
+        """
+        iq_burst = self.segment_dict['iq_matrix']
+        iq = np.log(np.abs(np.fft.fft(self.hann(iq_burst), axis=axis)))
+        iq = np.maximum(np.median(iq) - 1, iq)
+        return iq
+
+    def iq_to_scalogram(self, flip: bool = False):
+        """
+        calculate a scalogram matrix that preforms a continues wavelet transformation on the data.
+        return a 3-d array that keeps the different scaled scalograms as different channels
+
+        Arguments:
+            iq_matrix (array-like): array of complex signal data, rows represent spatial location, columns time
+            flip (bool): optional argument for flipping the row order of the matrix.
+            transformation (string): name of wavelet signal to use as mother signal. default to gaussian kernel
+        return:
+            3-d scalogram: array like transformation that correspond with correlation of different frequency wavelets at different time-points.
+
+        1. select each column of the IQ matrix
+        2. apply hann-window smoothing
+        3. preform Continues Wavelet Transformation (data, array of psooible scale values, type of transformation)
+        """
+
+        scalograms = []
+        # analyze each column (time-point) seperatly.
+        iq_matrix = self.normalize(self.segment_dict['iq_matrix'])
+        # TODO see if this can be vectorized with np.apply_along_axis
+        for j in range(iq_matrix.shape[1]):
+            # preform hann smoothing on a column - results in a singal j-2 sized column
+            # preform py.cwt transformation, returns coefficients and frequencies
+
+            coef, freqs = pywt.cwt(self.hann(iq_matrix[:, j][:, np.newaxis]),
+                                   np.arange(1, self.config.get('wavelet_scale', 9)),
+                                   self.config.get('mother_wavelet', 'cgau1'))
+            # coefficient matrix returns as a (num_scalers-1, j-2 , 1) array, transform it into a 2-d array
+
+            if flip:
+                coef = np.flip(coef, axis=0)
+            # log normalization of the data
+            coef = np.log(np.abs(coef))
+            # first column correspond to the scales, rest is the coefficients
+            coef = coef[:, :, 0]
+
+            scalograms.append(coef)
+
+        stacked_scalogram = np.stack(scalograms)
+        stacked_scalogram = np.maximum(np.median(stacked_scalogram) - 1., stacked_scalogram)
+        stacked_scalogram = np.transpose(stacked_scalogram, (2, 0, 1))
+        return stacked_scalogram
+
+    @staticmethod
+    def flip_iq_horizontal(iq):
+        return iq.real * -1 + 1j*iq.imag
+
+    @staticmethod
+    def flip_iq_vertical(iq):
+        return iq.real + -1j*iq.imag
+
+    @staticmethod
+    def flip_spectogram_horizontal(spectogram):
+        return np.flip(spectogram, axis=0)
+
+    @staticmethod
+    def flip_spectogram_vertical(spectogram):
+        return np.flip(spectogram, axis=1)
 
     def flip_scalogram_horizontal(self):
         # TODO function to flip segment-as-scalogram horizontally
@@ -94,27 +181,136 @@ class _Track(TypedDict):
     config: _Config
 
 
+class _SubTrack(TypedDict):
+    tracks: List[Union[np.ndarray[np.complex], np.ndarray]]
+    bursts: List[np.ndarray[np.int]]
+    labels: List[np.ndarray[np.str]]
+
+class _Segments(TypedDict):
+    segments: List[Union[np.ndarray[np.complex], np.ndarray]]
+    bursts: List[np.ndarray[np.int]]
+    labels: List[np.ndarray[np.str]]
+    segment_ids: List[np.ndarray[np.int]]
+
 # Make the Track Class based on torch Dataset to support iterable dataset
 class TrackDS(Dataset):
     """Dataset for a batch of segments from one track."""
 
-    def __init__(self, track_id: int, track: _Track):
+    def __init__(self, track_id: int, track: _Track, config: _Config,
+                 sub_tracks: _SubTrack = None, segment_list: _Segments = None):
         """
         Arguments:
             data -- {dict} -- data for
         """
         self.track_id = track_id
+        self.config = config
         self.track = track
+        self.sub_tracks = sub_tracks
+        self.segment_list = segment_list
 
     def __len__(self):
         return len(self.track)
 
     def __getitem__(self, idx):
-        return self.track[idx]
+        assert False
 
     def validate_subtracks(self):
-        # TODO function to split track into sub-tracks according to the is_validation attribute of sequential segments.
+        """This algorithm works on the assumption that we have a Boolean Array in data['usable'] indicating whether a
+        given segment is to be used for augmentation -- eligibility is set in get_track_level_data.
+        It will create a list of the longest adjacent sub-tracks contained in a track and return the broken-up track as a
+        list of lists, along with the corresponding doppler_burst and label arrays as lists of lists in a dictionary.
+
+        Arguments:
+                data -- {dict} -- data for one track with parameters: {'iq_sweep_burst', 'doppler_burst',
+                                                                        'target_type', 'usable'}
+        """
+        # shift_segment = config.get('shift_segment', 1)
+        previous_i = 0
+        tracks = []
+        bursts = []
+        labels = []
+        for i, use in enumerate(self.track['usable']):
+            if not use:
+                if self.track['usable'][previous_i]:
+                    if i - previous_i > 0:
+                        start = previous_i * 32
+                        end = i * 32
+                        tracks.append(self.track['iq_sweep_burst'][:, start:end])
+                        bursts.append(self.track['doppler_burst'][start:end])
+                        labels.append(self.track['target_type'][i])
+                previous_i = i + 1
+        if not tracks:
+            tracks.append(self.track['iq_sweep_burst'])
+            bursts.append(self.track['doppler_burst'])
+            labels.append(self.track['target_type'])
+        self.sub_tracks = {'tracks': tracks, 'bursts': bursts, 'labels': labels}
+
+    @staticmethod
+    def split_2d_array(track: np.ndarray, shift_segment: int = 1) -> List[np.ndarray]:
+        """
+        Splits a 2D track (IQ Matrix or spectogram) into N new segments:
+            formula (track.shape[1]) - 32)/shift_segment.
+
+        Arguments:
+        track -- {ndarray} -- spectogram/IQ matrix, dimensions (>32, 128)
+        shift_segment -- {int} -- Size of step to shift track to generate new segments
+
+        Returns:
+        List new segments [segment_array, segment_array]
+        """
+        indices = range(0, track.shape[1] - 32, shift_segment)
+        segments = []
+        for i in indices:
+            segment = track[:, i: i + 32].copy()
+            segments.append(segment)
+        return segments
+
+    @staticmethod
+    def split_3d_array(self):
+        # TODO implement function like split_2d_track for 3d scalogram
         assert False
+
+    @staticmethod
+    def split_1d_array(burst: np.ndarray, shift_segment: int = 1) -> List[list]:
+        """
+        Splits a doppler burst into N new segments
+            formula (len(burst) - 32)/shift_segment.
+
+        Arguments:
+        burst -- {ndarray} -- array with dimensions (>32,)
+        shift_segment -- {int} -- Size of step to shift track to generate new segments
+
+        Returns:
+        Dictionary of new segments like {burst_index: new_burst}
+        """
+        indices = range(0, len(burst) - 32, shift_segment)
+        bursts = []
+        for i in indices:
+            new_burst = burst[i: i + 32].copy()
+            bursts.append(new_burst)
+        return bursts
+
+    def create_new_segments_from_splits(self):
+        """Splits a list of tracks into new segments of size (128, 32) by shifting the existing track in shift_segment increments
+            Returns dictionary with list of segments and corresponding bursts and labels
+            Arguments:
+                data -- {dict} -- contains keys:  {tracks', 'bursts', 'labels'}
+                shift_segment -- {int} -- the number of index steps to move for each segment split
+        """
+        new_segments = []
+        new_bursts = []
+        new_labels = []
+        for i, track in enumerate(self.sub_tracks['tracks']):
+            if track.shape[1] > 32:
+                new_segments.extend(self.split_2d_array(track=track, shift_segment=self.config['shift_segment']))
+                new_bursts.extend(self.split_1d_array(burst=self.sub_tracks['bursts'][i],
+                                                      shift_segment=self.config['shift_segment']))
+                new_labels.extend([self.sub_tracks['labels'][i]] * len(new_bursts[-1]))
+            else:
+                new_segments.extend(track)
+                new_bursts.extend(self.sub_tracks['bursts'][i])
+                new_labels.append(self.sub_tracks['labels'][i])
+        self.segment_list = {'segments': new_segments, 'bursts': new_bursts, 'labels': new_labels}
 
     def split_iq_matrix(self):
         # TODO function to create new segments from IQ Matrix
