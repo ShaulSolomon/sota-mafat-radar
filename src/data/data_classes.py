@@ -1,3 +1,4 @@
+import random
 from typing import Dict, TypedDict, List, Any, Union
 import numpy as np
 import pandas as pd
@@ -24,15 +25,19 @@ class _Config(TypedDict):
     shift_segment: int
     get_horizontal_flip: bool
     get_vertical_flip: bool
+    output_data_type: str
     wavelets: bool
     mother_wavelet: str
     wavelet_scale: int
+    batch_size: int
 
 
 class _Segment(TypedDict):
     track_id: int
     segment_id: int
     iq_matrix: np.ndarray[np.complex]
+    spectrogram: np.ndarray[np.float]
+    scalogram: np.ndarray[np.float]
     doppler_burst: np.ndarray[np.int]
     geolocation_id: int
     geolocation_type: str
@@ -44,10 +49,25 @@ class _Segment(TypedDict):
     usable: bool
 
 
+class _Track(TypedDict):
+    track_id: int
+    output_array: np.ndarray[Union[np.complex, np.float]]
+    doppler_burst: np.ndarray[np.int]
+    target_type: np.ndarray[np.str]
+    usable: np.ndarray[np.bool]
+    geolocation_id: np.ndarray[np.int]
+    geolocation_type: np.ndarray[np.str]
+    sensor_id: np.ndarray[np.int]
+    snr_type: np.ndarray[np.str]
+    date_index: np.ndarray[np.int]
+    is_validation: np.ndarray[np.bool]
+    segment_id: np.ndarray[np.int]
+    config: _Config
+
+
 class Segment(object):
-    def __init__(self, config: _Config, **kwargs):
+    def __init__(self, config: _Config):
         self.config = config
-        self.segment_dict = _Segment(**kwargs)
 
     @staticmethod
     def hann(iq, window=None):
@@ -80,7 +100,8 @@ class Segment(object):
         s = iq.std()
         return (iq - m) / s
 
-    def iq_to_spectogram(self, axis=0, doppler: bool = False):
+    @staticmethod
+    def iq_to_spectogram(iq_burst, axis=0, doppler: bool = False):
         """
         Calculates spectrogram of 'iq_sweep_burst'.
 
@@ -91,12 +112,12 @@ class Segment(object):
         Returns:
         Transformed iq_burst array
         """
-        iq_burst = self.segment_dict['iq_matrix']
-        iq = np.log(np.abs(np.fft.fft(self.hann(iq_burst), axis=axis)))
+        iq = np.log(np.abs(np.fft.fft(Segment.hann(iq_burst), axis=axis)))
         iq = np.maximum(np.median(iq) - 1, iq)
         return iq
 
-    def iq_to_scalogram(self, flip: bool = False):
+    @staticmethod
+    def iq_to_scalogram(iq_burst, flip: bool = False, transformation: str = 'cgau1', scale: int = 9):
         """
         calculate a scalogram matrix that preforms a continues wavelet transformation on the data.
         return a 3-d array that keeps the different scaled scalograms as different channels
@@ -105,25 +126,26 @@ class Segment(object):
             iq_matrix (array-like): array of complex signal data, rows represent spatial location, columns time
             flip (bool): optional argument for flipping the row order of the matrix.
             transformation (string): name of wavelet signal to use as mother signal. default to gaussian kernel
+            scale (int): number of scales to apply wavelet over
         return:
             3-d scalogram: array like transformation that correspond with correlation of different frequency wavelets at different time-points.
 
         1. select each column of the IQ matrix
         2. apply hann-window smoothing
         3. preform Continues Wavelet Transformation (data, array of psooible scale values, type of transformation)
+        :param mother_wavelet:
         """
 
         scalograms = []
         # analyze each column (time-point) seperatly.
-        iq_matrix = self.normalize(self.segment_dict['iq_matrix'])
+        iq_matrix = Segment.normalize(iq_burst)
         # TODO see if this can be vectorized with np.apply_along_axis
         for j in range(iq_matrix.shape[1]):
             # preform hann smoothing on a column - results in a singal j-2 sized column
             # preform py.cwt transformation, returns coefficients and frequencies
 
-            coef, freqs = pywt.cwt(self.hann(iq_matrix[:, j][:, np.newaxis]),
-                                   np.arange(1, self.config.get('wavelet_scale', 9)),
-                                   self.config.get('mother_wavelet', 'cgau1'))
+            coef, freqs = pywt.cwt(Segment.hann(iq_matrix[:, j][:, np.newaxis]),
+                                   np.arange(1, scale), transformation)
             # coefficient matrix returns as a (num_scalers-1, j-2 , 1) array, transform it into a 2-d array
 
             if flip:
@@ -156,48 +178,20 @@ class Segment(object):
     def flip_spectogram_vertical(spectogram):
         return np.flip(spectogram, axis=1)
 
-    def flip_scalogram_horizontal(self):
-        # TODO function to flip segment-as-scalogram horizontally
-        assert False
+    @staticmethod
+    def flip_scalogram_horizontal(scalogram):
+        return np.flip(scalogram, axis=0)
 
-    def flip_scalogram_vertical(self):
-        # TODO function to flip segment-as-scalogram vertically
-        assert False
+    @staticmethod
+    def flip_scalogram_vertical(scalogram):
+        return np.flip(scalogram, axis=1)
 
-
-class _Track(TypedDict):
-    track_id: int
-    iq_sweep_burst: np.ndarray[np.complex]
-    doppler_burst: np.ndarray[np.int]
-    target_type: np.ndarray[np.str]
-    usable: np.ndarray[np.bool]
-    geolocation_id: np.ndarray[np.int]
-    geolocation_type: np.ndarray[np.str]
-    sensor_id: np.ndarray[np.int]
-    snr_type: np.ndarray[np.str]
-    date_index: np.ndarray[np.int]
-    is_validation: np.ndarray[np.bool]
-    segment_id: np.ndarray[np.int]
-    config: _Config
-
-
-class _SubTrack(TypedDict):
-    tracks: List[Union[np.ndarray[np.complex], np.ndarray]]
-    bursts: List[np.ndarray[np.int]]
-    labels: List[np.ndarray[np.str]]
-
-class _Segments(TypedDict):
-    segments: List[Union[np.ndarray[np.complex], np.ndarray]]
-    bursts: List[np.ndarray[np.int]]
-    labels: List[np.ndarray[np.str]]
-    segment_ids: List[np.ndarray[np.int]]
 
 # Make the Track Class based on torch Dataset to support iterable dataset
 class TrackDS(Dataset):
     """Dataset for a batch of segments from one track."""
 
-    def __init__(self, track_id: int, track: _Track, config: _Config,
-                 sub_tracks: _SubTrack = None, segment_list: _Segments = None):
+    def __init__(self, track_id: int, track: _Track, config: _Config):
         """
         Arguments:
             data -- {dict} -- data for
@@ -205,14 +199,29 @@ class TrackDS(Dataset):
         self.track_id = track_id
         self.config = config
         self.track = track
-        self.sub_tracks = sub_tracks
-        self.segment_list = segment_list
 
     def __len__(self):
         return len(self.track)
 
     def __getitem__(self, idx):
         assert False
+        # TODO implement get a track and convert to output type fetched from config
+
+class Track(object):
+    """Dataset for a batch of segments from one track."""
+
+    def __init__(self, track_id: int, track: _Track, config: _Config):
+        """
+        Arguments:
+            data -- {dict} -- data for
+        """
+        self.track_id = track_id
+        self.config = config
+        self.track = track
+        self.sub_tracks = self.validate_subtracks()
+        self.segment_list = [_Track()]
+        self.create_new_segments_from_splits()
+        random.shuffle(self.segment_list)
 
     def validate_subtracks(self):
         """This algorithm works on the assumption that we have a Boolean Array in data['usable'] indicating whether a
@@ -227,71 +236,54 @@ class TrackDS(Dataset):
         # shift_segment = config.get('shift_segment', 1)
         previous_i = 0
         tracks = []
-        bursts = []
-        labels = []
         for i, use in enumerate(self.track['usable']):
             if not use:
                 if self.track['usable'][previous_i]:
                     if i - previous_i > 0:
                         start = previous_i * 32
                         end = i * 32
-                        tracks.append(self.track['iq_sweep_burst'][:, start:end])
-                        bursts.append(self.track['doppler_burst'][start:end])
-                        labels.append(self.track['target_type'][i])
+                        if self.config['output_data_type'] == 'scalogram':
+                            track = self.track['output_array'][:, start:end, :]
+                        else:
+                            track = self.track['output_array'][:, start:end, :]
+                        tracks.append(_Track(track_id=f'{self.track_id}_{previous_i}_{i}',
+                                             output_array=track,
+                                             doppler_burst=self.track['doppler_burst'][start:end],
+                                             target_type=self.track['target_type'][i],
+                                             config=self.config))
                 previous_i = i + 1
         if not tracks:
-            tracks.append(self.track['iq_sweep_burst'])
-            bursts.append(self.track['doppler_burst'])
-            labels.append(self.track['target_type'])
-        self.sub_tracks = {'tracks': tracks, 'bursts': bursts, 'labels': labels}
+            tracks.append(_Track(track_id=self.track_id,
+                                 output_array=self.track['output_array'],
+                                 doppler_burst=self.track['doppler_burst'],
+                                 target_type=self.track['target_type']))
+        return tracks
+
 
     @staticmethod
-    def split_2d_array(track: np.ndarray, shift_segment: int = 1) -> List[np.ndarray]:
+    def split_Nd_array(array: np.ndarray, shift_segment: int = 1) -> List[np.ndarray]:
         """
-        Splits a 2D track (IQ Matrix or spectogram) into N new segments:
-            formula (track.shape[1]) - 32)/shift_segment.
+        Splits a N-dimensional Array (Doppler Burst, IQ Matrix, spectogram, scalogram) into K new segments:
+            formula (track.shape[N]) - 32)/K.
 
         Arguments:
         track -- {ndarray} -- spectogram/IQ matrix, dimensions (>32, 128)
         shift_segment -- {int} -- Size of step to shift track to generate new segments
-
+        dim -- {int} -- Array dimension along which to split
         Returns:
         List new segments [segment_array, segment_array]
         """
-        indices = range(0, track.shape[1] - 32, shift_segment)
-        segments = []
-        for i in indices:
-            segment = track[:, i: i + 32].copy()
-            segments.append(segment)
+
+        if array.ndim == 1:
+            indices = range(0, len(array) - 32, shift_segment)
+            segments = [np.take(array, np.arange(i, i + 32), axis=0).copy() for i in indices]
+        else:
+            indices = range(0, array.shape[1] - 32, shift_segment)
+            segments = [np.take(array, np.arange(i, i + 32), axis=1).copy() for i in indices]
         return segments
 
-    @staticmethod
-    def split_3d_array(self):
-        # TODO implement function like split_2d_track for 3d scalogram
-        assert False
-
-    @staticmethod
-    def split_1d_array(burst: np.ndarray, shift_segment: int = 1) -> List[list]:
-        """
-        Splits a doppler burst into N new segments
-            formula (len(burst) - 32)/shift_segment.
-
-        Arguments:
-        burst -- {ndarray} -- array with dimensions (>32,)
-        shift_segment -- {int} -- Size of step to shift track to generate new segments
-
-        Returns:
-        Dictionary of new segments like {burst_index: new_burst}
-        """
-        indices = range(0, len(burst) - 32, shift_segment)
-        bursts = []
-        for i in indices:
-            new_burst = burst[i: i + 32].copy()
-            bursts.append(new_burst)
-        return bursts
-
     def create_new_segments_from_splits(self):
-        """Splits a list of tracks into new segments of size (128, 32) by shifting the existing track in shift_segment increments
+        """Splits a list of track objects into new segments of size (128, 32) by shifting the existing track in shift_segment increments
             Returns dictionary with list of segments and corresponding bursts and labels
             Arguments:
                 data -- {dict} -- contains keys:  {tracks', 'bursts', 'labels'}
@@ -300,37 +292,27 @@ class TrackDS(Dataset):
         new_segments = []
         new_bursts = []
         new_labels = []
-        for i, track in enumerate(self.sub_tracks['tracks']):
-            if track.shape[1] > 32:
-                new_segments.extend(self.split_2d_array(track=track, shift_segment=self.config['shift_segment']))
-                new_bursts.extend(self.split_1d_array(burst=self.sub_tracks['bursts'][i],
+        for i, track in enumerate(self.sub_tracks):
+            if track['output_array'].shape[1] > 32:
+                new_segments.extend(self.split_Nd_array(array=track['output_array'],
+                                                        shift_segment=self.config['shift_segment']))
+                new_bursts.extend(self.split_Nd_array(array=track['doppler_burst'],
                                                       shift_segment=self.config['shift_segment']))
-                new_labels.extend([self.sub_tracks['labels'][i]] * len(new_bursts[-1]))
+                new_labels.extend([track['target_type'][i]] * len(new_bursts[-1]))
             else:
                 new_segments.extend(track)
-                new_bursts.extend(self.sub_tracks['bursts'][i])
-                new_labels.append(self.sub_tracks['labels'][i])
+                new_bursts.extend(tracks['bursts'][i])
+                new_labels.append(tracks['labels'][i])
         self.segment_list = {'segments': new_segments, 'bursts': new_bursts, 'labels': new_labels}
 
-    def split_iq_matrix(self):
-        # TODO function to create new segments from IQ Matrix
-        assert False
 
-    def split_spectograms(self):
-        # TODO function to create new segments from spectograms
-        assert False
-
-    def split_scalograms(self):
-        # TODO function to create new segments from scalograms
-        assert False
-
-
-class DataDict(object):
+class DataDict(IterableDataset):
     data_df: Union[Union[DataFrame, Series], Any]
     file_path: str
     config: _Config
     train_dict: dict
-    train_dict: List[TrackDS]
+    track_objects: List[TrackDS]
+    output_data_type: str
 
     def __init__(self, file_path, config: _Config):
         super().__init__()
@@ -339,6 +321,8 @@ class DataDict(object):
         self.train_dict = {}
         self.data_df = pd.DataFrame()
         self.track_objects = []
+        self.create_track_objects()
+        self.output_type = self.config.get('output_data_type', 'spectrogram')
 
     def load_all_datasets(self):
         """Load all datasets into one dictionary
@@ -367,6 +351,27 @@ class DataDict(object):
         # Adding segments from the experiment auxiliary set to the training set
         self.train_dict = append_dict(training_dict, train_aux)
 
+    @staticmethod
+    def split_train_val_as_pd(data, ratio=6):
+        """
+        Split the data to train and validation set.
+        The validation set is built from training set segments of
+        geolocation_id 1 and 4.
+        Use the function only after the training set is complete and preprocessed.
+
+        Arguments:
+          data -- {pandas} -- the data set to split as pandas dataframe
+          ratio -- {int} -- ratio to make the split by
+
+        Returns:
+          same dataset as input, with adding is_validation column
+        """
+
+        data['is_validation'] = ((data['geolocation_id'] == 4) | (data['geolocation_id'] == 1)) & \
+                                (data['segment_id'] % ratio == 0)
+
+        return data
+
     def create_track_objects(self):
         """Transform a dictionary of segment-level datasets into a track-level dictionary
 
@@ -380,6 +385,7 @@ class DataDict(object):
                 """
         # Creating a dataframe to make it easier to validate sequential segments
         df = pd.DataFrame.from_dict(self.train_dict, orient='index').transpose()
+        df = self.split_train_val_as_pd(data=df, ratio=self.config.get('valratio', 6))
         df.sort_values(by=['track_id', 'segment_id'], inplace=True)
 
         # validating that each track consists of segments with same values in following columns
@@ -392,7 +398,7 @@ class DataDict(object):
         # only keep target_type, usable, iq_sweep_burst and doppler_burst_column
         df_tracks = df.groupby('track_id').agg(target_type=pd.NamedAgg(column="target_type", aggfunc=list),
                                                usable=pd.NamedAgg(column="usable", aggfunc=list),
-                                               iq_sweep_burst=pd.NamedAgg(column="iq_sweep_burst", aggfunc=list),
+                                               output_array=pd.NamedAgg(column="iq_sweep_burst", aggfunc=list),
                                                doppler_burst=pd.NamedAgg(column="doppler_burst", aggfunc=list),
                                                geolocation_type=pd.NamedAgg(column="geolocation_type", aggfunc=list),
                                                geolocation_id=pd.NamedAgg(column="geolocation_id", aggfunc=list),
@@ -401,7 +407,13 @@ class DataDict(object):
                                                date_index=pd.NamedAgg(column="target_type", aggfunc=list),
                                                segment_id=pd.NamedAgg(column="segment_id", aggfunc=list),
                                                )
-        df_tracks['iq_sweep_burst'] = df_tracks['iq_sweep_burst'].apply(lambda x: np.concatenate(x, axis=-1))
+        df_tracks['output_array'] = df_tracks['output_array'].apply(lambda x: np.concatenate(x, axis=-1))
+        if self.output_data_type == 'scalogram':
+            df_tracks['output_array'] = df_tracks['output_array'].apply(Segment.iq_to_scalogram,
+                                                                        self.config['mother_wavelet'],
+                                                                        self.config['wavelet_scale'])
+        else:
+            df_tracks['output_array'] = df_tracks['output_array'].apply(Segment.iq_to_spectogram)
         df_tracks['doppler_burst'] = df_tracks['doppler_burst'].apply(lambda x: np.concatenate(x, axis=-1))
         df_tracks['target_type'] = df_tracks['target_type'].apply(np.array)
         df_tracks['usable'] = df_tracks['usable'].apply(np.array)
@@ -411,4 +423,12 @@ class DataDict(object):
         df_tracks['snr_type'] = df_tracks['snr_type'].apply(np.array)
         df_tracks['date_index'] = df_tracks['date_index'].apply(np.array)
         df_tracks['segment_id'] = df_tracks['segment_id'].apply(np.array)
-        self.track_objects = [TrackDS(track_id=k, track=v) for k, v in df_tracks.to_dict(orient='index').items()]
+        self.track_objects = df_tracks.to_dict(orient='index')
+
+    def process_tracks(self):
+        block_size = self.config.get('batch_size', 50)
+        loaders = []
+        for i, track in self.track_objects:
+            data = TrackDS(track_id=i, track=track, config=self.config)
+            loaders.append(DataLoader(data, batch_size=block_size, shuffle=True))
+        return loaders
