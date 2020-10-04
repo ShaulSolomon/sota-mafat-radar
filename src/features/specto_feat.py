@@ -187,18 +187,19 @@ def data_preprocess(data, df_type = 'spectrogram' , flip = True, kernel = 'cgau1
   """
   X=[]
   if df_type == 'scalogram':
-    #pbar = tqdm.tqdm(total = len(data['iq_sweep_burst']), position = 0, leave = True)
+    pbar = tqdm.tqdm(total = len(data['iq_sweep_burst']), position = 0, leave = True)
     for i in range(len(data['iq_sweep_burst'])):
       X.append(calculate_scalogram(data['iq_sweep_burst'][i], flip = flip, transformation= kernel))
-      #pbar.update()
-    #pbar.close()
+      pbar.update()
+    pbar.close()
+    data['scalogram'] = np.array(X)
   else:
     for i in range(len(data['iq_sweep_burst'])):
       iq = fft(data['iq_sweep_burst'][i])
       iq = max_value_on_doppler(iq,data['doppler_burst'][i])
       iq = normalize(iq)
       X.append(iq)
-  data['iq_sweep_burst'] = np.array(X)
+    data['iq_sweep_burst'] = np.array(X)
 
   if 'target_type' in data:
     data['target_type'][data['target_type'] == 'animal'] = 0

@@ -93,7 +93,8 @@ class DS(Dataset):
 
         # augementations
         # do flips (if needed)
-        if 'augmentation_info' in data_inner_o.keys():
+        
+        if ('augmentation_info' in data_inner_o.keys()) & (len(data_inner_o['augmentation_info'][0])>1):
             for augment_info in data_inner_o['augmentation_info'][0]: # the [0] is because we added [] in the data_inner_o
                 #print(f"augment_info:{augment_info}")
                 if augment_info['type']=='flip':
@@ -106,13 +107,16 @@ class DS(Dataset):
                         data_inner_o['doppler_burst'] = np.flip(data_inner_o['doppler_burst'])
 
         # do preprocess
-    
+        data = data_inner_o
         data = specto_feat.data_preprocess(data_inner_o, df_type = self.data_type)
+        
         data['target_type'] = np.array(int(data['target_type'][0]),dtype='int64')
         
         label2model = data['target_type']
-        data2model = data['iq_sweep_burst']
-
+        if self.data_type == 'spectrogram':
+            data2model = np.array(data['iq_sweep_burst'])
+        else:
+            data2model = np.array(data['scalogram'])
         #print(f"type0:{data['target_type']}")
 
         #print(f"data2model:{data2model.shape}")  # (1,132,28)

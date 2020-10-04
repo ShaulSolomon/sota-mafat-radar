@@ -52,7 +52,7 @@ class alex_3d(nn.Module):
                             nn.Dropout(p=0.5, inplace=False),
                             nn.Linear(in_features=1024, out_features=256, bias=True),
                             nn.LeakyReLU(inplace=True),
-                            nn.Linear(in_features=256, out_features=1, bias=True)   
+                            nn.Linear(in_features=256, out_features=1, bias=True),
         )
              
     def _conv_layer_set(self, in_c, out_c, kernel = (3,3,3), pool = (2,2,2), pad = 0):

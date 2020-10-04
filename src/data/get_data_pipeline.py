@@ -254,8 +254,8 @@ def pipeline_trainval_ram_reduced(PATH_DATA, config = {}):
     del experiment_auxiliary_df
     del train_aux
 
-  #if wavelets:
-  #  train_dict = specto_feat.data_preprocess(train_dict) 
+  if wavelets:
+    train_dict = specto_feat.data_preprocess(train_dict, df_type = 'scalogram')
 
   full_data = pd.DataFrame.from_dict(train_dict,orient='index').transpose()
 
@@ -311,6 +311,7 @@ def pipeline_trainval_ram_reduced(PATH_DATA, config = {}):
     val_x = val_x.reshape(list(val_x.shape)+[1])
   val_y = val_processed['target_type'].astype(int)
   '''
+
   return full_data
 
 
