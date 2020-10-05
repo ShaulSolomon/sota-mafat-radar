@@ -342,12 +342,6 @@ class DataDict(object):
                                                usable=pd.NamedAgg(column="usable", aggfunc=list),
                                                output_array=pd.NamedAgg(column="iq_sweep_burst", aggfunc=list),
                                                doppler_burst=pd.NamedAgg(column="doppler_burst", aggfunc=list),
-                                               geolocation_type=pd.NamedAgg(column="geolocation_type", aggfunc=list),
-                                               geolocation_id=pd.NamedAgg(column="geolocation_id", aggfunc=list),
-                                               sensor_id=pd.NamedAgg(column="sensor_id", aggfunc=list),
-                                               snr_type=pd.NamedAgg(column="snr_type", aggfunc=list),
-                                               date_index=pd.NamedAgg(column="target_type", aggfunc=list),
-                                               segment_id=pd.NamedAgg(column="segment_id", aggfunc=list),
                                                )
         df_tracks['output_array'] = df_tracks['output_array'].apply(lambda x: np.concatenate(x, axis=-1))
 
@@ -367,12 +361,6 @@ class DataDict(object):
         df_tracks['doppler_burst'] = df_tracks['doppler_burst'].apply(lambda x: np.concatenate(x, axis=-1))
         df_tracks['target_type'] = df_tracks['target_type'].apply(np.array)
         df_tracks['usable'] = df_tracks['usable'].apply(np.array)
-        df_tracks['geolocation_type'] = df_tracks['geolocation_type'].apply(np.array)
-        df_tracks['geolocation_id'] = df_tracks['geolocation_id'].apply(np.array)
-        df_tracks['sensor_id'] = df_tracks['sensor_id'].apply(np.array)
-        df_tracks['snr_type'] = df_tracks['snr_type'].apply(np.array)
-        df_tracks['date_index'] = df_tracks['date_index'].apply(np.array)
-        df_tracks['segment_id'] = df_tracks['segment_id'].apply(np.array)
         return df_tracks.to_dict(orient='index'), val_df.to_dict(orient='index')
 
 
@@ -481,7 +469,7 @@ class StreamingDataset(IterableDataset):
         return zip(*[self.get_segment_stream() for _ in range(self.config['batch_size'])])
 
     @classmethod
-    def split_track_dataset(cls, data_list, batch_size, max_workers):
+    def split_track_dataset(cls, data_list, batch_size, max_workers, config: Config):
 
         for n in range(max_workers, 0, -1):
             if batch_size % n == 0:
@@ -489,7 +477,7 @@ class StreamingDataset(IterableDataset):
                 break
         split_size = batch_size // num_workers
 
-        return [cls(dataset=data_list, config=cls.config) for _ in range(num_workers)]
+        return [cls(dataset=data_list, config=config) for _ in range(num_workers)]
 
     def __iter__(self):
         return self.get_segment_streams()
