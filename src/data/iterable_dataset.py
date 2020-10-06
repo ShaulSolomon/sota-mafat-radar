@@ -331,6 +331,7 @@ class DataDict(object):
         df['usable'] = np.select(conditions, conditions, default=False)
         df.loc[df['is_validation'], 'usable'] = False
         df.loc[df['is_validation'].shift(1).bfill(), 'usable'] = False
+        # TODO find a better way to create subtracks already here - perhaps using a smart groupby transform to group only consecutive segment ids
         # df['subtrack_id'] = df.groupby('track_id')['segment_id'].transform('rank')
         # df.groupby((df['usable'].shift() != df['usable']).cumsum())
 
@@ -378,6 +379,7 @@ def filter_usable_segments(data, output_data_type) -> List[_Segment]:
     burst = data['doppler_burst']
     previous_i = 0
     tracks = []
+    # TODO debug this, not splitting as should after removing the validation segments
     for i, use in enumerate(data['usable']):
         if not use:
             if data['usable'][previous_i]:
@@ -430,7 +432,7 @@ class StreamingDataset(IterableDataset):
         self.is_val = is_val
         random.shuffle(self.random_index)
 
-    def segments_generator(self, data_dict) -> DataLoader:
+    def segments_generator(self, data_dict) -> List[_Segment]:
         """
         Generates new and/or augmented segments according to configuration parameters.
         Returns a dictionary containing the merged set of segments indexed by
@@ -460,10 +462,12 @@ class StreamingDataset(IterableDataset):
             flips = create_flipped_segments(resplit_data, flip_type='horizontal')
             resplit_data = resplit_data + flips
 
-        return DataLoader(TrackDS(resplit_data), batch_size=1, shuffle=True)
+        # return DataLoader(resplit_data, batch_size=1, shuffle=True)
+        return resplit_data
 
     def get_segment_stream(self):
-        return chain.from_iterable(map(self.segments_generator, self.data))
+
+        return chain.from_iterable(map(self.segments_generator, self.data.values()))
 
     def get_segment_streams(self):
         return zip(*[self.get_segment_stream() for _ in range(self.config['batch_size'])])
@@ -480,7 +484,7 @@ class StreamingDataset(IterableDataset):
         return [cls(dataset=data_list, config=config) for _ in range(num_workers)]
 
     def __iter__(self):
-        return self.get_segment_streams()
+        return self.get_segment_stream()
 
 
 class MultiStreamDataLoader:
@@ -488,7 +492,7 @@ class MultiStreamDataLoader:
         self.datasets = datasets
 
     def get_stream_loaders(self):
-        return zip(*[DataLoader(dataset=dataset, num_workers=1, batch_size=None) for dataset in self.datasets])
+        return zip(*[DataLoader(dataset=dataset, num_workers=1, batch_size=2) for dataset in self.datasets])
 
     def __iter__(self):
         for batch_parts in self.get_stream_loaders():
