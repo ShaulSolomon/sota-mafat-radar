@@ -32,7 +32,7 @@ segment_count = dataset.data_df.shape[0]
 # train_datasets = StreamingDataset.split_track_dataset(dataset.train_data, config=config, max_workers=4)
 # train_loader = MultiStreamDataLoader(train_datasets)
 train_dataset = StreamingDataset(dataset.train_data, config)
-train_loader = DataLoader(train_dataset, batch_size=config.batch_size['batch_size'])
+train_loader = DataLoader(train_dataset, batch_size=config['batch_size'])
 val_data = StreamingDataset(dataset.val_data, config, is_val=True)
 val_loader = DataLoader(val_data, batch_size=config['batch_size'])
 
