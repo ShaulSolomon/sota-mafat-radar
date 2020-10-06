@@ -23,13 +23,13 @@ for creds_path in creds_path_ar:
 sys.path.insert(0,os.path.join(PATH_ROOT))
 from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiStreamDataLoader
 
-config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=False, output_data_type='spectrogram',
+config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=False, output_data_type='scalogram',
                 get_horizontal_flip=False, get_vertical_flip=False, mother_wavelet='cgau1', wavelet_scale=3,
                 batch_size=50)
 dataset = DataDict(config=config)
 track_count = len(dataset.train_data) + len(dataset.val_data)
 segment_count = dataset.data_df.shape[0]
-train_datasets = StreamingDataset.split_track_dataset(dataset.train_data, config.get('batch_size', 10), max_workers=4)
+train_datasets = StreamingDataset.split_track_dataset(dataset.train_data, config=config.get('batch_size', 10), max_workers=4)
 train_loader = MultiStreamDataLoader(train_datasets)
 val_data = StreamingDataset(dataset.val_data, config, is_val=True)
 val_loader = DataLoader(val_data, batch_size=config.get('batch_size', 10))

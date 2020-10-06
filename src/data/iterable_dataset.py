@@ -1,5 +1,6 @@
+from abc import ABC
 from itertools import chain, cycle
-from typing import TypedDict, List, Union, Dict
+from typing import List, Union, Dict
 
 import pandas as pd
 import numpy as np
@@ -148,7 +149,7 @@ def split_Nd_array(array: np.ndarray) -> List[np.ndarray]:
     return segments
 
 
-class _Segment(TypedDict):
+class _Segment(Dict, ABC):
     segment_id: Union[int, str]
     output_array: np.ndarray
     doppler_burst: np.ndarray
@@ -173,7 +174,7 @@ class TrackDS(Dataset):
         return self.segment_list[idx]
 
 
-class Config(TypedDict):
+class Config(Dict, ABC):
     """
     num_tracks -- {int} -- # of tracks to take from aux dataset
     valratio -- {int} -- Ratio of train/val split
@@ -251,7 +252,6 @@ class DataDict(object):
     train_size: int
     val_data: Dict[int, dict]
     val_size: int
-
 
     def __init__(self, config):
         self.config = config
@@ -348,8 +348,8 @@ class DataDict(object):
         if self.output_data_type == 'scalogram':
             print('Converting IQ matricies to Scalogram')
             df_tracks['output_array'] = df_tracks['output_array'].progress_apply(iq_to_scalogram,
-                                                                                 self.config['mother_wavelet'],
-                                                                                 self.config['wavelet_scale'])
+                                                                                 transformation=self.config['mother_wavelet'],
+                                                                                 scale=self.config['wavelet_scale'])
             val_df['output_array'] = val_df['iq_sweep_burst'].progress_apply(iq_to_scalogram,
                                                                              self.config['mother_wavelet'],
                                                                              self.config['wavelet_scale'])
@@ -469,14 +469,14 @@ class StreamingDataset(IterableDataset):
         return zip(*[self.get_segment_stream() for _ in range(self.config['batch_size'])])
 
     @classmethod
-    def split_track_dataset(cls, data_list, batch_size, max_workers, config: Config):
-
+    def split_track_dataset(cls, data_list, max_workers, config: Config):
+        batch_size = config.get('batch_size', 10)
         for n in range(max_workers, 0, -1):
             if batch_size % n == 0:
                 num_workers = n
                 break
         split_size = batch_size // num_workers
-
+        config['batch_size'] = split_size
         return [cls(dataset=data_list, config=config) for _ in range(num_workers)]
 
     def __iter__(self):
