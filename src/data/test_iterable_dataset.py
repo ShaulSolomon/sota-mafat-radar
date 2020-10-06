@@ -36,7 +36,11 @@ train_loader = DataLoader(train_dataset, batch_size=config['batch_size'])
 val_data = StreamingDataset(dataset.val_data, config, is_val=True)
 val_loader = DataLoader(val_data, batch_size=config['batch_size'])
 
-train_sample_counts = [len(sample) for sample in train_loader]
+train_sample_counts = []
+for sample in train_loader:
+    print(type(sample))
+    sample_len = len(sample)
+    train_sample_counts.append(sample_len)
 val_sample_counts = [len(sample) for sample in val_loader]
 sample_counts = val_sample_counts + train_sample_counts
 count = sum(sample_counts)
