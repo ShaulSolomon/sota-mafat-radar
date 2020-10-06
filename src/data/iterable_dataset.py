@@ -127,24 +127,24 @@ def iq_to_scalogram(iq_burst, flip: bool = False, transformation: str = 'cgau1',
     return stacked_scalogram
 
 
-def split_Nd_array(array: np.ndarray) -> List[np.ndarray]:
+def split_Nd_array(array: np.ndarray, nsplits: int) -> List[np.ndarray]:
     """
-    Splits a N-dimensional Array (Doppler Burst, IQ Matrix, spectogram, scalogram) into K new segments:
-        formula (track.shape[N]) - 32)/K.
+    Splits a N-dimensional Array (Doppler Burst, IQ Matrix, spectogram, scalogram) into new segments:
+        new segment count = (track.shape[N] - (32/K))/K
 
     Arguments:
     track -- {ndarray} -- spectogram/IQ matrix, dimensions (>32, 128)
-    # shift_segment -- {int} -- Size of step to shift track to generate new segments
+    k -- {int} -- Size of step to shift track to generate new segments
     dim -- {int} -- Array dimension along which to split
     Returns:
     List new segments [segment_array, segment_array]
     """
 
     if array.ndim == 1:
-        indices = range(0, len(array) - 32)
+        indices = range(0, len(array) - 32, nsplits)
         segments = [np.take(array, np.arange(i, i + 32), axis=0).copy() for i in indices]
     else:
-        indices = range(0, array.shape[1] - 32)
+        indices = range(0, array.shape[1] - 32, nsplits)
         segments = [np.take(array, np.arange(i, i + 32), axis=1).copy() for i in indices]
     return segments
 
@@ -196,7 +196,7 @@ class Config(Dict, ABC):
     batch_size: int
 
 
-def create_new_segments_from_splits(segment_list: List[_Segment]) -> List[_Segment]:
+def create_new_segments_from_splits(segment_list: List[_Segment], nsplits: int) -> List[_Segment]:
     """Splits a list of tracks into new segments of size (128, 32) by shifting the existing track increments of 1 along slow-time axis
         Returns dictionary with list of segments and corresponding bursts and labels
         Arguments:
@@ -205,8 +205,8 @@ def create_new_segments_from_splits(segment_list: List[_Segment]) -> List[_Segme
     new_segments = []
     for i, segment in enumerate(segment_list):
         if segment['output_array'].shape[1] > 32:
-            output_array = split_Nd_array(array=segment['output_array'])
-            bursts = split_Nd_array(array=segment['doppler_burst'])
+            output_array = split_Nd_array(array=segment['output_array'], nsplits=nsplits)
+            bursts = split_Nd_array(array=segment['doppler_burst'], nsplits=nsplits)
             labels = [segment['target_type']] * len(bursts)
             new_segments.extend([_Segment(segment_id=f'{i}_{j}',
                                           output_array=array,
@@ -451,9 +451,9 @@ class StreamingDataset(IterableDataset):
         filtered_data = filter_usable_segments(data=data_dict, output_data_type=self.config['output_data_type'])
 
         if self.config.get('get_shifts'):
-            resplit_data = create_new_segments_from_splits(filtered_data)
+            resplit_data = create_new_segments_from_splits(filtered_data, nsplits=1)
         else:
-            resplit_data = filtered_data
+            resplit_data = create_new_segments_from_splits(filtered_data, nsplits=32)
 
         if self.config.get('get_vertical_flip'):
             flips = create_flipped_segments(resplit_data, flip_type='vertical')
