@@ -371,10 +371,10 @@ def filter_usable_segments(data, output_data_type) -> List[_Segment]:
     list of lists, along with the corresponding doppler_burst and label arrays as lists of lists in a dictionary.
 
     Arguments:
-            data -- {dict} -- data for one track with parameters: {'iq_sweep_burst', 'doppler_burst',
+            data -- {dict} -- data for one track with parameters: {'output_array', 'doppler_burst',
                                                                     'target_type', 'usable'}
     """
-    track = data['iq_sweep_burst']
+    track = data['output_array']
     burst = data['doppler_burst']
     previous_i = 0
     tracks = []
