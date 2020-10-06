@@ -1,9 +1,11 @@
-import configparser
+#%%
+# import configparser
 from os import path
 import os
 import sys
 
 from torch.utils.data import DataLoader
+import configparser
 
 PATH_ROOT = ""
 PATH_DATA = ""
@@ -19,9 +21,12 @@ for creds_path in creds_path_ar:
         WANDB_enable = config_parser['MAIN']["WANDB_ENABLE"] == 'TRUE'
         ENV = config_parser['MAIN']["ENV"]
 
+#%%
 # adding cwd to path to avoid "No module named src.*" errors
 sys.path.insert(0,os.path.join(PATH_ROOT))
 from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiStreamDataLoader
+
+#%%
 
 config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=False, output_data_type='spectrogram',
                 get_horizontal_flip=False, get_vertical_flip=False, mother_wavelet='cgau1', wavelet_scale=3,
