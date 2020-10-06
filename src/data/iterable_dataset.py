@@ -81,6 +81,14 @@ def iq_to_spectogram(iq_burst, axis=0, doppler: bool = False):
     return iq
 
 
+def my_cwt(iq_matrix_col, transformation: str = 'cgau1', scale: int = 9):
+    coef, _ = pywt.cwt(hann(iq_matrix_col[:,np.newaxis]),
+                               np.arange(1, scale), transformation)
+    coef = np.log(np.abs(coef))                          
+    coef = coef[:, :, 0]
+    return coef
+
+
 def iq_to_scalogram(iq_burst, flip: bool = False, transformation: str = 'cgau1', scale: int = 9):
     """
     calculate a scalogram matrix that preforms a continues wavelet transformation on the data.
@@ -124,6 +132,35 @@ def iq_to_scalogram(iq_burst, flip: bool = False, transformation: str = 'cgau1',
     stacked_scalogram = np.stack(scalograms)
     stacked_scalogram = np.maximum(np.median(stacked_scalogram) - 1., stacked_scalogram)
     stacked_scalogram = np.transpose(stacked_scalogram, (2, 0, 1))
+    return stacked_scalogram
+
+
+def iq_to_scalogram2(iq_burst, flip: bool = False, transformation: str = 'cgau1', scale: int = 9):
+    """
+    calculate a scalogram matrix that preforms a continues wavelet transformation on the data.
+    return a 3-d array that keeps the different scaled scalograms as different channels
+
+    Arguments:
+        iq_matrix (array-like): array of complex signal data, rows represent spatial location, columns time
+        flip (bool): optional argument for flipping the row order of the matrix.
+        transformation (string): name of wavelet signal to use as mother signal. default to gaussian kernel
+        scale (int): number of scales to apply wavelet over
+    return:
+        3-d scalogram: array like transformation that correspond with correlation of different frequency wavelets at different time-points.
+
+    1. select each column of the IQ matrix
+    2. apply hann-window smoothing
+    3. preform Continues Wavelet Transformation (data, array of psooible scale values, type of transformation)
+    :param mother_wavelet:
+    """
+
+    scalograms = []
+    iq_matrix = normalize(iq_burst)
+    scalograms = np.apply_along_axis(my_cwt,0,iq_matrix)
+
+    stacked_scalogram = np.stack(scalograms)
+    stacked_scalogram = np.maximum(np.median(stacked_scalogram) - 1., stacked_scalogram)
+    stacked_scalogram = np.transpose(stacked_scalogram, (1, 2, 0))
     return stacked_scalogram
 
 
