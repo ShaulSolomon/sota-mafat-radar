@@ -29,10 +29,12 @@ config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=False,
 dataset = DataDict(config=config)
 track_count = len(dataset.train_data) + len(dataset.val_data)
 segment_count = dataset.data_df.shape[0]
-train_datasets = StreamingDataset.split_track_dataset(dataset.train_data, config=config, max_workers=4)
-train_loader = MultiStreamDataLoader(train_datasets)
+# train_datasets = StreamingDataset.split_track_dataset(dataset.train_data, config=config, max_workers=4)
+# train_loader = MultiStreamDataLoader(train_datasets)
+train_dataset = StreamingDataset(dataset.train_data, config)
+train_loader = DataLoader(train_dataset, batch_size=config.batch_size['batch_size'])
 val_data = StreamingDataset(dataset.val_data, config, is_val=True)
-val_loader = DataLoader(val_data, batch_size=config.get('batch_size', 10))
+val_loader = DataLoader(val_data, batch_size=config['batch_size'])
 
 train_sample_counts = [len(sample) for sample in train_loader]
 val_sample_counts = [len(sample) for sample in val_loader]
