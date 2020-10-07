@@ -431,7 +431,7 @@ class StreamingDataset(IterableDataset):
 
         return (segment for segment in segment_list)
 
-# TODO implement some kind of queue system to feed blocks of segments of a fixed size to the __iter__ method, needs to be an iterator.
+# TODO implement some kind of queue system to feed blocks of segments of a fixed size to the __iter__ method, needs to be a generator/iterator.
     def process_data(self):
         return chain(self.segments_generator(track) for track in self.data)
 
@@ -439,31 +439,32 @@ class StreamingDataset(IterableDataset):
         for segments in chain(self.process_data()):
             for segment in segments:
                 yield segment
+                # yield next(segment_gen) failed with error StopIteration, see how to fix that?
 
-    def get_segment_stream(self):
-        block_stream = []
-        for loader in self.process_data():
-            batch = defaultdict(list)
-            for segment in loader:
-                for k, v in segment.items():
-                    batch[k].extend(v)
-            batch = {k: torch.stack(v).squeeze() for k, v in batch.items()}
-            yield batch
+    # def get_segment_stream(self):
+    #     block_stream = []
+    #     for loader in self.process_data():
+    #         batch = defaultdict(list)
+    #         for segment in loader:
+    #             for k, v in segment.items():
+    #                 batch[k].extend(v)
+    #         batch = {k: torch.stack(v).squeeze() for k, v in batch.items()}
+    #         yield batch
+    #
+    #
+    # @classmethod
+    # def split_track_dataset(cls, data_list, max_workers, config: Config):
+    #     batch_size = config.get('batch_size', 10)
+    #     for n in range(max_workers, 0, -1):
+    #         if batch_size % n == 0:
+    #             num_workers = n
+    #             break
+    #     split_size = batch_size // num_workers
+    #     config['batch_size'] = split_size
+    #     return [cls(dataset=data_list, config=config, shuffle=True) for _ in range(num_workers)]
+    #
 
 
-    @classmethod
-    def split_track_dataset(cls, data_list, max_workers, config: Config):
-        batch_size = config.get('batch_size', 10)
-        for n in range(max_workers, 0, -1):
-            if batch_size % n == 0:
-                num_workers = n
-                break
-        split_size = batch_size // num_workers
-        config['batch_size'] = split_size
-        return [cls(dataset=data_list, config=config, shuffle=True) for _ in range(num_workers)]
-
-
-            # yield next(segment_gen) failed with error StopIteration, see how to fix that?
         # for loader in self.process_data():
         #     batch = defaultdict(list)
         #     for segment in loader:
