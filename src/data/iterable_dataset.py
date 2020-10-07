@@ -202,6 +202,7 @@ def create_new_segments_from_splits(segment_list: List[_Segment], nsplits: int) 
         Arguments:
             data -- {dict} -- contains keys:  {tracks', 'bursts', 'labels'}
     """
+    # TODO align with segment id as string
     new_segments = []
     for i, segment in enumerate(segment_list):
         if segment['output_array'].shape[1] > 32:
@@ -225,6 +226,7 @@ def create_flipped_segments(segment_list: List[_Segment], flip_type: str = 'vert
             data -- {dict} -- contains keys:  {tracks', 'bursts', 'labels'}
             flip_type {str} -- indicate whether to perform horizontal or vertical flips
     """
+    # TODO align with segment id as string
     flip = return_unchanged
     burst_flip = return_unchanged
     if flip_type == 'vertical':
@@ -335,9 +337,7 @@ class DataDict(object):
         # save validation segments to object and drop from current DF
         val_df = df.loc[df.is_validation].copy().set_index(['track_id', 'segment_id'])
         df = df.loc[~df.is_validation].copy()
-        # TODO find a better way to create subtracks already here - perhaps using a smart groupby transform to group only consecutive segment ids
-        # df['subtrack_id'] = df.groupby('track_id')['segment_id'].transform('rank')
-        # df.groupby((df['usable'].shift() != df['usable']).cumsum())
+        # Creating a subtrack id for immediate grouping into contiguous segments
         df['subtrack_id'] = df.groupby('track_id').usable.cumsum()
         df_tracks = df.groupby(['track_id', 'subtrack_id']).agg(target_type=pd.NamedAgg(column="target_type", aggfunc=list),
                                                                 usable=pd.NamedAgg(column="usable", aggfunc=list),
@@ -374,46 +374,6 @@ class DataDict(object):
         train_segments = [_Segment(segment_id=f'{k[0]}_{k[1]}', **v) for k, v in df_tracks.to_dict(orient='index').items()]
         val_segments = [_Segment(segment_id=f'{k[0]}_{k[1]}', **v) for k, v in val_tracks.to_dict(orient='index').items()]
         return train_segments, val_segments
-
-
-# def filter_usable_segments(data, output_data_type) -> List[_Segment]:
-#     """This algorithm works on the assumption that we have a Boolean Array in data['usable'] indicating whether a
-#     given segment is to be used for augmentation -- eligibility is set in get_track_level_data.
-#     It will create a list of the longest adjacent sub-tracks contained in a track and return the broken-up track as a
-#     list of lists, along with the corresponding doppler_burst and label arrays as lists of lists in a dictionary.
-#
-#     Arguments:
-#             data -- {dict} -- data for one track with parameters: {'output_array', 'doppler_burst',
-#                                                                     'target_type', 'usable'}
-#     """
-#     track = data['output_array']
-#     burst = data['doppler_burst']
-#     previous_i = 0
-#     tracks = []
-#     # TODO remove this, the splitting algorithm isn't working as it should after removing the validation segments in line 336, replace with operation on dataframe to create subtrack/segment IDs already at that stage
-#     for i, use in enumerate(data['usable']):
-#         if not use:
-#             if data['usable'][previous_i]:
-#                 if i - previous_i > 0:
-#                     start = previous_i * 32
-#                     end = i * 32
-#                     if output_data_type == 'scalogram':
-#                         output_array = track[:, start:end, :]
-#                     else:
-#                         output_array = track[:, start:end]
-#
-#                     tracks.append(_Segment(segment_id=i,
-#                                            output_array=output_array,
-#                                            doppler_burst=burst[start:end],
-#                                            target_type=data['target_type'][i]))
-#             previous_i = i + 1
-#     if not tracks:
-#         if track.shape[1] == 32:
-#             tracks.append(_Segment(segment_id=data['segment_id'][0],
-#                                    output_array=track,
-#                                    doppler_burst=burst,
-#                                    target_type=data['target_type']))
-#     return tracks
 
 
 class StreamingDataset(IterableDataset):
