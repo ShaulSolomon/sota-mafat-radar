@@ -321,11 +321,10 @@ def create_new_segments_from_splits(segment: _Segment, nsplits: int) -> List[_Se
     if segment['output_array'].shape[1] > 32:
         output_array = split_Nd_array(array=segment['output_array'], nsplits=nsplits)
         bursts = split_Nd_array(array=segment['doppler_burst'], nsplits=nsplits)
-        labels = [segment['target_type']] * len(bursts)
         new_segments.extend([_Segment(segment_id=f'{segment["segment_id"]}_{j}',
-                                      output_array=output_array,
+                                      output_array=array,
                                       doppler_burst=bursts[j],
-                                      target_type=labels[j]) for j, array in enumerate(output_array)])
+                                      target_type=segment['target_type'][0]) for j, array in enumerate(output_array)])
 
     else:
         new_segments.append(segment)
@@ -402,7 +401,7 @@ class StreamingDataset(IterableDataset):
         if shuffle:
             random.shuffle(self.data)
 
-    def segments_generator(self, segment_list: _Segment) -> List[_Segment]:
+    def segments_generator(self, segment_list: _Segment) -> Generator[_Segment, Any, None]:
         """
         Generates new and/or augmented segments according to configuration parameters.
         Returns a dictionary containing the merged set of segments indexed by
@@ -421,7 +420,7 @@ class StreamingDataset(IterableDataset):
         if self.config.get('get_shifts'):
             segment_list = create_new_segments_from_splits(segment_list, nsplits=1)
         else:
-            segment_list = create_new_segments_from_splits(segment_list, nsplits=32)
+            segment_list = create_new_segments_from_splits(segment_list, nsplits=31)
 
         if self.config.get('get_vertical_flip'):
             flips = create_flipped_segments(segment_list, flip_type='vertical')
@@ -430,12 +429,16 @@ class StreamingDataset(IterableDataset):
             flips = create_flipped_segments(segment_list, flip_type='horizontal')
             segment_list = segment_list + flips
 
-        return segment_list
+        return (segment for segment in segment_list)
 
 # TODO implement some kind of queue system to feed blocks of segments of a fixed size to the __iter__ method, needs to be an iterator.
     def process_data(self):
-        for track in self.data:
-            segment_list = self.segments_generator(track)
+        return chain(self.segments_generator(track) for track in self.data)
+
+    def __iter__(self):
+        for segments in chain(self.process_data()):
+            for segment in segments:
+                yield segment
 
     def get_segment_stream(self):
         block_stream = []
@@ -459,14 +462,15 @@ class StreamingDataset(IterableDataset):
         config['batch_size'] = split_size
         return [cls(dataset=data_list, config=config, shuffle=True) for _ in range(num_workers)]
 
-    def __iter__(self):
-        for loader in self.process_data():
-            batch = defaultdict(list)
-            for segment in loader:
-                for k, v in segment.items():
-                    batch[k].extend(v)
-            batch = {k: torch.stack(v).squeeze() for k, v in batch.items()}
-            yield batch
+
+            # yield next(segment_gen) failed with error StopIteration, see how to fix that?
+        # for loader in self.process_data():
+        #     batch = defaultdict(list)
+        #     for segment in loader:
+        #         for k, v in segment.items():
+        #             batch[k].extend(v)
+        #     batch = {k: torch.stack(v).squeeze() for k, v in batch.items()}
+        #     yield batch
 
         # for track in self.data:
         #     segments = self.segments_generator(track)
