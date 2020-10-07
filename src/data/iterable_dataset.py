@@ -450,7 +450,7 @@ class StreamingDataset(IterableDataset):
                 break
         split_size = batch_size // num_workers
         config['batch_size'] = split_size
-        return [cls(dataset=data_list, config=config) for _ in range(num_workers)]
+        return [cls(dataset=data_list, config=config, shuffle=True) for _ in range(num_workers)]
 
     def __iter__(self):
         return self.get_segment_stream()
