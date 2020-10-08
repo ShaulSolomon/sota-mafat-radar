@@ -1,12 +1,14 @@
 from abc import ABC
+from collections import defaultdict
 from itertools import chain, cycle
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Generator, Any
 
 import pandas as pd
 import numpy as np
 import random
 
 import pywt
+import torch
 from tqdm import tqdm
 from torch.utils.data import DataLoader, Dataset, IterableDataset
 import sys
@@ -135,6 +137,7 @@ def iq_to_scalogram(iq_burst, flip: bool = False, transformation: str = 'cgau1',
     return stacked_scalogram
 
 
+
 def iq_to_scalogram2(iq_burst, flip: bool = False, transformation: str = 'cgau1', scale: int = 9):
     """
     calculate a scalogram matrix that preforms a continues wavelet transformation on the data.
@@ -163,7 +166,6 @@ def iq_to_scalogram2(iq_burst, flip: bool = False, transformation: str = 'cgau1'
     stacked_scalogram = np.transpose(stacked_scalogram, (1, 2, 0))
     return stacked_scalogram
 
-
 def split_Nd_array(array: np.ndarray, nsplits: int) -> List[np.ndarray]:
     """
     Splits a N-dimensional Array (Doppler Burst, IQ Matrix, spectogram, scalogram) into new segments:
@@ -190,25 +192,23 @@ class _Segment(Dict, ABC):
     segment_id: Union[int, str]
     output_array: np.ndarray
     doppler_burst: np.ndarray
-    target_type: str
+    target_type: np.ndarray
 
+    def assert_valid_spectrogram(self):
+        assert isinstance(self['segment_id'], (int, str)), f'Segment id must be int or string: is {type(self["output_array"])} with {self["segment_id"]}'
+        assert isinstance(self['output_array'], np.ndarray), f'Output array must be nd.array: is {type(self["output_array"])} with segment id {self["segment_id"]}'
+        assert self['output_array'].shape == (126, 32), f'Output array must have shape (126, 32): is {self["output_array"].shape} with segment id {self["segment_id"]}'
+        assert isinstance(self['doppler_burst'], np.ndarray), f'Doppler burst must be nd.array: is {type(self["doppler_burst"])} with segment id {self["segment_id"]}'
+        assert self['doppler_burst'].shape == (32, ), f'Doppler burst must have shape (32,): is {self["doppler_burst"].shape} with segment id {self["segment_id"]}'
+        assert isinstance(self['target_type'], bool), f'Target type must be np.bool_: is {type(self["target_type"])} with segment id {self["segment_id"]}'
 
-class TrackDS(Dataset):
-    """Dataset for a batch of segments from one track."""
-    segment_list: List[_Segment]
-
-    def __init__(self, segment_list):
-        """
-        Arguments:
-            data -- {dict} -- data for
-        """
-        self.segment_list = segment_list
-
-    def __len__(self):
-        return len(self.segment_list)
-
-    def __getitem__(self, idx):
-        return self.segment_list[idx]
+    def assert_valid_scalogram(self):
+        assert isinstance(self['segment_id'], (int, str)), f'Segment id must be int or string: is {type(self["output_array"])} with {self["segment_id"]}'
+        assert isinstance(self['output_array'], np.ndarray), f'Output array must be nd.array: is {type(self["output_array"])} with segment id {self["segment_id"]}'
+        assert self['output_array'].ndim == 3, f'Output array must b 3D: is {self["output_array"].ndim} with segment id {self["segment_id"]}'
+        assert isinstance(self['doppler_burst'], np.ndarray), f'Doppler burst must be nd.array: is {type(self["doppler_burst"])} with segment id {self["segment_id"]}'
+        assert self['doppler_burst'].shape == (32, ), f'Doppler burst must have shape (32,): is {self["doppler_burst"].shape} with segment id {self["segment_id"]}'
+        assert isinstance(self['target_type'], np.bool_), f'Target type must be nd.array: is {type(self["target_type"])} with segment id {self["segment_id"]}'
 
 
 class Config(Dict, ABC):
@@ -231,53 +231,6 @@ class Config(Dict, ABC):
     mother_wavelet: str
     wavelet_scale: int
     batch_size: int
-
-
-def create_new_segments_from_splits(segment_list: List[_Segment], nsplits: int) -> List[_Segment]:
-    """Splits a list of tracks into new segments of size (128, 32) by shifting the existing track increments of 1 along slow-time axis
-        Returns dictionary with list of segments and corresponding bursts and labels
-        Arguments:
-            data -- {dict} -- contains keys:  {tracks', 'bursts', 'labels'}
-    """
-    new_segments = []
-    for i, segment in enumerate(segment_list):
-        if segment['output_array'].shape[1] > 32:
-            output_array = split_Nd_array(array=segment['output_array'], nsplits=nsplits)
-            bursts = split_Nd_array(array=segment['doppler_burst'], nsplits=nsplits)
-            labels = [segment['target_type']] * len(bursts)
-            new_segments.extend([_Segment(segment_id=f'{i}_{j}',
-                                          output_array=array,
-                                          doppler_burst=bursts[j],
-                                          target_type=labels[j]) for j, array in enumerate(output_array)])
-
-        else:
-            new_segments.append(segment)
-    return new_segments
-
-
-def create_flipped_segments(segment_list: List[_Segment], flip_type: str = 'vertical') -> List[_Segment]:
-    """Returns a list of vertically or horizontally flipped segments
-        Returns dictionary with list of flipped segments and correspondingly flipped bursts and labels
-        Arguments:
-            data -- {dict} -- contains keys:  {tracks', 'bursts', 'labels'}
-            flip_type {str} -- indicate whether to perform horizontal or vertical flips
-    """
-    flip = return_unchanged
-    burst_flip = return_unchanged
-    if flip_type == 'vertical':
-        flip = flip_vertical
-        burst_flip = burst_vertical_flip
-    if flip_type == 'horizontal':
-        flip = flip_horizontal
-        burst_flip = np.flip
-    flipped_segments = []
-    print(f'Flipping segments {flip_type}')
-    for i, segment in enumerate(tqdm(segment_list)):
-        flipped_segments.append(_Segment(segment_id=f'{segment["segment_id"]}_{i}',
-                                         output_array=flip(segment["output_array"]),
-                                         doppler_burst=burst_flip(segment['doppler_burst']),
-                                         target_type=segment['target_type']))
-    return flipped_segments
 
 
 class DataDict(object):
@@ -360,95 +313,122 @@ class DataDict(object):
         df = self.data_df
         df = self.split_train_val_as_pd(data=df, ratio=self.config.get('valratio', 6))
         df.sort_values(by=['track_id', 'segment_id'], inplace=True)
-
+        df.replace({'animal': False, 'human': True}, inplace=True)
         # validating that each track consists of segments with same values in following columns
         columns_to_check = ['geolocation_type', 'geolocation_id', 'sensor_id', 'snr_type', 'date_index', 'target_type']
         conditions = [(df.groupby('track_id')[col].shift(0) == df.groupby('track_id')[col].shift(1).bfill())
                       for col in columns_to_check]
         df['usable'] = np.select(conditions, conditions, default=False)
         df.loc[df['is_validation'], 'usable'] = False
-        df.loc[df['is_validation'].shift(1).bfill(), 'usable'] = False
+        df.loc[df['is_validation'].shift(1).fillna(False), 'usable'] = False
+        df['usable'] = ~df['usable']
         # save validation segments to object and drop from current DF
-        val_df = df.loc[df.is_validation].copy().set_index('segment_id')
+        val_df = df.loc[df.is_validation].copy().set_index(['track_id', 'segment_id'])
         df = df.loc[~df.is_validation].copy()
-        # TODO find a better way to create subtracks already here - perhaps using a smart groupby transform to group only consecutive segment ids
-        # df['subtrack_id'] = df.groupby('track_id')['segment_id'].transform('rank')
-        # df.groupby((df['usable'].shift() != df['usable']).cumsum())
-        df_tracks = df.groupby('track_id').agg(target_type=pd.NamedAgg(column="target_type", aggfunc=list),
-                                               usable=pd.NamedAgg(column="usable", aggfunc=list),
-                                               output_array=pd.NamedAgg(column="iq_sweep_burst", aggfunc=list),
-                                               doppler_burst=pd.NamedAgg(column="doppler_burst", aggfunc=list),
-                                               segment_id=pd.NamedAgg(column="segment_id", aggfunc=list),
-                                               )
-        df_tracks['output_array'] = df_tracks['output_array'].apply(lambda x: np.concatenate(x, axis=-1))
+        # Creating a subtrack id for immediate grouping into contiguous segments
+        df['subtrack_id'] = df.groupby('track_id').usable.cumsum()
+        df_tracks = df.groupby(['track_id', 'subtrack_id']).agg(target_type=pd.NamedAgg(column="target_type", aggfunc='unique'),
+                                                                output_array=pd.NamedAgg(column="iq_sweep_burst", aggfunc=list),
+                                                                doppler_burst=pd.NamedAgg(column="doppler_burst", aggfunc=list),
+                                                                )
+        val_tracks = val_df.groupby(['track_id', 'segment_id']).agg(target_type=pd.NamedAgg(column="target_type", aggfunc='unique'),
+                                                                    output_array=pd.NamedAgg(column="iq_sweep_burst", aggfunc=list),
+                                                                    doppler_burst=pd.NamedAgg(column="doppler_burst", aggfunc=list),
+                                                                    )
+        df_tracks['output_array'] = df_tracks['output_array'].apply(lambda x: np.concatenate(x, axis=1))
+        val_tracks['output_array'] = val_tracks['output_array'].apply(lambda x: np.concatenate(x, axis=1))
 
         if self.output_data_type == 'scalogram':
             print('Converting IQ matricies to Scalogram')
             df_tracks['output_array'] = df_tracks['output_array'].progress_apply(iq_to_scalogram,
                                                                                  transformation=self.config['mother_wavelet'],
                                                                                  scale=self.config['wavelet_scale'])
-            val_df['output_array'] = val_df['iq_sweep_burst'].progress_apply(iq_to_scalogram,
-                                                                             self.config['mother_wavelet'],
-                                                                             self.config['wavelet_scale'])
+            val_tracks['output_array'] = val_tracks['iq_sweep_burst'].progress_apply(iq_to_scalogram,
+                                                                                     transformation=self.config['mother_wavelet'],
+                                                                                     scale=self.config['wavelet_scale'])
         else:
             print('Converting IQ matricies to Spectrogram')
             df_tracks['output_array'] = df_tracks['output_array'].progress_apply(iq_to_spectogram)
-            val_df['output_array'] = val_df['iq_sweep_burst'].progress_apply(iq_to_spectogram)
+            val_tracks['output_array'] = val_tracks['output_array'].progress_apply(iq_to_spectogram)
 
         df_tracks['doppler_burst'] = df_tracks['doppler_burst'].apply(lambda x: np.concatenate(x, axis=-1))
-        df_tracks['target_type'] = df_tracks['target_type'].apply(np.array)
-        df_tracks['usable'] = df_tracks['usable'].apply(np.array)
-        df_tracks['segment_id'] = df_tracks['segment_id'].apply(np.array)
-        return df_tracks.to_dict(orient='index'), val_df.to_dict(orient='index')
+        val_tracks['doppler_burst'] = val_tracks['doppler_burst'].apply(lambda x: np.concatenate(x, axis=-1))
+        df_tracks['target_type'] = df_tracks['target_type'].apply(lambda x: x[0])
+        val_tracks['target_type'] = val_tracks['target_type'].apply(lambda x: x[0])
+        train_segments = [_Segment(segment_id=f'{k[0]}_{k[1]}', **v) for k, v in df_tracks.to_dict(orient='index').items()]
+        val_segments = [_Segment(segment_id=f'{k[0]}_{k[1]}', **v) for k, v in val_tracks.to_dict(orient='index').items()]
+        return train_segments, val_segments
 
 
-def filter_usable_segments(data, output_data_type) -> List[_Segment]:
-    """This algorithm works on the assumption that we have a Boolean Array in data['usable'] indicating whether a
-    given segment is to be used for augmentation -- eligibility is set in get_track_level_data.
-    It will create a list of the longest adjacent sub-tracks contained in a track and return the broken-up track as a
-    list of lists, along with the corresponding doppler_burst and label arrays as lists of lists in a dictionary.
-
-    Arguments:
-            data -- {dict} -- data for one track with parameters: {'output_array', 'doppler_burst',
-                                                                    'target_type', 'usable'}
+def create_new_segments_from_splits(segment: _Segment, nsplits: int) -> List[_Segment]:
+    """Splits a list of tracks into new segments of size (128, 32) by shifting the existing track increments of 1 along slow-time axis
+        Returns dictionary with list of segments and corresponding bursts and labels
+        Arguments:
+            data -- {dict} -- contains keys:  {tracks', 'bursts', 'labels'}
     """
-    track = data['output_array']
-    burst = data['doppler_burst']
-    previous_i = 0
-    tracks = []
-    # TODO remove this, the splitting algorithm isn't working as it should after removing the validation segments in line 336, replace with operation on dataframe to create subtrack/segment IDs already at that stage
-    for i, use in enumerate(data['usable']):
-        if not use:
-            if data['usable'][previous_i]:
-                if i - previous_i > 0:
-                    start = previous_i * 32
-                    end = i * 32
-                    if output_data_type == 'scalogram':
-                        output_array = track[:, start:end, :]
-                    else:
-                        output_array = track[:, start:end]
+    new_segments = []
+    if segment['output_array'].shape[1] > 32:
+        output_array = split_Nd_array(array=segment['output_array'], nsplits=nsplits)
+        bursts = split_Nd_array(array=segment['doppler_burst'], nsplits=nsplits)
+        new_segments.extend([_Segment(segment_id=f'{segment["segment_id"]}_{j}',
+                                      output_array=array,
+                                      doppler_burst=bursts[j],
+                                      target_type=segment['target_type']) for j, array in enumerate(output_array)])
 
-                    tracks.append(_Segment(segment_id=i,
-                                           output_array=output_array,
-                                           doppler_burst=burst[start:end],
-                                           target_type=data['target_type'][i]))
-            previous_i = i + 1
-    if not tracks:
-        if track.shape[1] == 32:
-            tracks.append(_Segment(segment_id=data['segment_id'][0],
-                                   output_array=track,
-                                   doppler_burst=burst,
-                                   target_type=data['target_type']))
-    return tracks
+    else:
+        new_segments.append(segment)
+    return new_segments
+
+
+def create_flipped_segments(segment_list: Union[List[_Segment], _Segment], flip_type: str = 'vertical') -> List[_Segment]:
+    """Returns a list of vertically or horizontally flipped segments
+        Returns dictionary with list of flipped segments and correspondingly flipped bursts and labels
+        Arguments:
+            data -- {dict} -- contains keys:  {tracks', 'bursts', 'labels'}
+            flip_type {str} -- indicate whether to perform horizontal or vertical flips
+    """
+    flip = return_unchanged
+    burst_flip = return_unchanged
+    if flip_type == 'vertical':
+        flip = flip_vertical
+        burst_flip = burst_vertical_flip
+    if flip_type == 'horizontal':
+        flip = flip_horizontal
+        burst_flip = np.flip
+    flipped_segments = []
+    if isinstance(segment_list, list):
+        for i, segment in enumerate(segment_list):
+            flipped_segments.append(_Segment(segment_id=f'{segment["segment_id"]}_{i}',
+                                             output_array=flip(segment["output_array"]).copy(),
+                                             doppler_burst=burst_flip(segment['doppler_burst']).copy(),
+                                             target_type=segment['target_type']))
+    elif isinstance(segment_list, dict):
+        flipped_segments.append(segment_list)
+    return flipped_segments
+
+
+class TrackDS(Dataset):
+    """Dataset for a batch of segments from one track."""
+
+    def __init__(self, segment_list: List[_Segment]):
+        self.segment_list = segment_list
+        for segment in self.segment_list:
+            segment['segment_id'] = int(segment['segment_id'])
+
+    def __len__(self):
+        return len(self.segment_list)
+
+    def __getitem__(self, idx):
+        return self.segment_list[idx]
 
 
 class StreamingDataset(IterableDataset):
-    data: Dict[int, dict]
+    data: List[_Segment]
     config: Config
     random_index: List[int]
     is_val: bool
 
-    def __init__(self, dataset, config, is_val=False):
+    def __init__(self, dataset, config, is_val=False, shuffle = True):
         """
              arguments:
              ...
@@ -465,11 +445,11 @@ class StreamingDataset(IterableDataset):
         super().__init__()
         self.data = dataset
         self.config = config
-        self.random_index = list(self.data.keys())
         self.is_val = is_val
-        random.shuffle(self.random_index)
+        if shuffle:
+            random.shuffle(self.data)
 
-    def segments_generator(self, data_dict) -> List[_Segment]:
+    def segments_generator(self, segment_list: _Segment) -> List[_Segment]:
         """
         Generates new and/or augmented segments according to configuration parameters.
         Returns a dictionary containing the merged set of segments indexed by
@@ -485,43 +465,33 @@ class StreamingDataset(IterableDataset):
                      get_vertical_flip -- {bool} -- Flag to add vertical flips
                      block_size -- {int} -- Max number of samples allowed to be held in a memory
         """
-        filtered_data = filter_usable_segments(data=data_dict, output_data_type=self.config['output_data_type'])
-
         if self.config.get('get_shifts'):
-            resplit_data = create_new_segments_from_splits(filtered_data, nsplits=1)
+            segment_list = create_new_segments_from_splits(segment_list, nsplits=1)
         else:
-            resplit_data = create_new_segments_from_splits(filtered_data, nsplits=32)
+            segment_list = create_new_segments_from_splits(segment_list, nsplits=31)
 
         if self.config.get('get_vertical_flip'):
-            flips = create_flipped_segments(resplit_data, flip_type='vertical')
-            resplit_data = resplit_data + flips
+            flips = create_flipped_segments(segment_list, flip_type='vertical')
+            segment_list.extend(flips)
         if self.config.get('get_horizontal_flip'):
-            flips = create_flipped_segments(resplit_data, flip_type='horizontal')
-            resplit_data = resplit_data + flips
+            flips = create_flipped_segments(segment_list, flip_type='horizontal')
+            segment_list.extend(flips)
 
-        # return DataLoader(resplit_data, batch_size=1, shuffle=True)
-        return resplit_data
+        for segment in segment_list:
+            if self.config['output_data_type'] == 'scalogram':
+                segment.assert_valid_scalogram()
+            else:
+                segment.assert_valid_spectrogram()
+        random.shuffle(segment_list)
+        return segment_list
 
-    def get_segment_stream(self):
-
-        return chain.from_iterable(map(self.segments_generator, self.data.values()))
-
-    def get_segment_streams(self):
-        return zip(*[self.get_segment_stream() for _ in range(self.config['batch_size'])])
-
-    @classmethod
-    def split_track_dataset(cls, data_list, max_workers, config: Config):
-        batch_size = config.get('batch_size', 10)
-        for n in range(max_workers, 0, -1):
-            if batch_size % n == 0:
-                num_workers = n
-                break
-        split_size = batch_size // num_workers
-        config['batch_size'] = split_size
-        return [cls(dataset=data_list, config=config) for _ in range(num_workers)]
+# TODO implement some kind of queue system to feed blocks of segments of a fixed size to the __iter__ method, needs to be a generator/iterator.
+    def process_data(self):
+        return chain(self.segments_generator(track) for track in self.data)
 
     def __iter__(self):
-        return self.get_segment_stream()
+        for segments in chain(self.process_data()):
+            yield from segments
 
 
 class MultiStreamDataLoader:
