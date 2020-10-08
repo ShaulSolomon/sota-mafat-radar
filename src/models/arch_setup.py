@@ -96,18 +96,21 @@ def create_flipped_segments(data_dict: dict, flip_type: str = 'vertical'):
             data -- {dict} -- contains keys:  {tracks', 'bursts', 'labels'}
             flip_type {str} -- indicate whether to perform horizontal or vertical flips
     """
-    flip = None
+    flip = lambda f: f
+    burst_flip = lambda bf: bf
     if flip_type == 'vertical':
         flip = vertical_flip
+        burst_flip = lambda burst: np.abs(128 - burst)
     if flip_type == 'horizontal':
         flip = horizontal_flip
+        burst_flip = np.flip
     flipped_segments = []
     flipped_bursts = []
     flipped_labels = []
     for i, segment in enumerate(data_dict['segments']):
         new_segments = [flip(seg) for seg in segment]
         flipped_segments.extend(new_segments)
-        new_bursts = [1 - burst for burst in data_dict['bursts'][i]]
+        new_bursts = [burst_flip(burst) for burst in data_dict['bursts'][i]] #TODO
         flipped_bursts.extend(new_bursts)
         flipped_labels.append(data_dict['labels'][i])
     return {'segments': flipped_segments, 'bursts': flipped_bursts,
