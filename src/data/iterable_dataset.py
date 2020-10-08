@@ -358,6 +358,10 @@ def create_flipped_segments(segment_list: Union[List[_Segment], _Segment], flip_
         flipped_segments.append(segment_list)
     return flipped_segments
 
+def split_list(a_list):
+    half = len(a_list)//2
+    return a_list[:half], a_list[half:]
+
 
 class TrackDS(Dataset):
     """Dataset for a batch of segments from one track."""
@@ -380,7 +384,7 @@ class StreamingDataset(IterableDataset):
     random_index: List[int]
     is_val: bool
 
-    def __init__(self, dataset, config, is_val=False, shuffle = True):
+    def __init__(self, dataset, config, is_val=False, shuffle=True):
         """
              arguments:
              ...
@@ -398,6 +402,9 @@ class StreamingDataset(IterableDataset):
         self.data = dataset
         self.config = config
         self.is_val = is_val
+        self.segment_blocks = []
+        self.track_count = 0
+        self.total_tracks = len(self.data) - 1
         if shuffle:
             random.shuffle(self.data)
 
@@ -435,7 +442,25 @@ class StreamingDataset(IterableDataset):
             else:
                 segment.assert_valid_spectrogram()
         random.shuffle(segment_list)
-        return segment_list
+        random.shuffle(self.segment_blocks)
+        # To pass all remaining segments in last iteration
+        if self.track_count == self.total_tracks:
+            segment_list.extend(self.segment_blocks)
+            self.segment_blocks = []
+            self.track_count += 1
+            return segment_list
+        else:
+            self.track_count += 1
+            self.segment_blocks.extend(segment_list)
+            random.shuffle(self.segment_blocks)
+            if self.track_count % self.config.get('tracks_in_memory', 100) == self.config.get('tracks_in_memory', 100) - 1:
+                segment_list = self.segment_blocks
+                self.segment_blocks = []
+                return segment_list
+            else:
+                half_a, half_b = split_list(self.segment_blocks)
+                self.segment_blocks = half_a
+                return half_b
 
 # TODO implement some kind of queue system to feed blocks of segments of a fixed size to the __iter__ method, needs to be a generator/iterator.
     def process_data(self):
