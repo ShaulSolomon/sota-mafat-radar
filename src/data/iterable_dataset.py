@@ -91,7 +91,7 @@ def my_cwt(iq_matrix_col, transformation: str = 'cgau1', scale: int = 9):
     return coef
 
 
-def iq_to_scalogram(iq_burst, flip: bool = False, transformation: str = 'cgau1', scale: int = 9):
+def iq_to_scalogram(iq_burst, transformation: str = 'cgau1', scale: int = 9):
     """
     calculate a scalogram matrix that preforms a continues wavelet transformation on the data.
     return a 3-d array that keeps the different scaled scalograms as different channels
@@ -110,56 +110,8 @@ def iq_to_scalogram(iq_burst, flip: bool = False, transformation: str = 'cgau1',
     :param mother_wavelet:
     """
 
-    scalograms = []
-    # analyze each column (time-point) seperatly.
     iq_matrix = normalize(iq_burst)
-    # TODO see if this can be vectorized with np.apply_along_axis
-    for j in range(iq_matrix.shape[1]):
-        # preform hann smoothing on a column - results in a singal j-2 sized column
-        # preform py.cwt transformation, returns coefficients and frequencies
-
-        coef, freqs = pywt.cwt(hann(iq_matrix[:, j][:, np.newaxis]),
-                               np.arange(1, scale), transformation)
-        # coefficient matrix returns as a (num_scalers-1, j-2 , 1) array, transform it into a 2-d array
-
-        if flip:
-            coef = np.flip(coef, axis=0)
-        # log normalization of the data
-        coef = np.log(np.abs(coef))
-        # first column correspond to the scales, rest is the coefficients
-        coef = coef[:, :, 0]
-
-        scalograms.append(coef)
-
-    stacked_scalogram = np.stack(scalograms)
-    stacked_scalogram = np.maximum(np.median(stacked_scalogram) - 1., stacked_scalogram)
-    stacked_scalogram = np.transpose(stacked_scalogram, (2, 0, 1))
-    return stacked_scalogram
-
-
-
-def iq_to_scalogram2(iq_burst, flip: bool = False, transformation: str = 'cgau1', scale: int = 9):
-    """
-    calculate a scalogram matrix that preforms a continues wavelet transformation on the data.
-    return a 3-d array that keeps the different scaled scalograms as different channels
-
-    Arguments:
-        iq_matrix (array-like): array of complex signal data, rows represent spatial location, columns time
-        flip (bool): optional argument for flipping the row order of the matrix.
-        transformation (string): name of wavelet signal to use as mother signal. default to gaussian kernel
-        scale (int): number of scales to apply wavelet over
-    return:
-        3-d scalogram: array like transformation that correspond with correlation of different frequency wavelets at different time-points.
-
-    1. select each column of the IQ matrix
-    2. apply hann-window smoothing
-    3. preform Continues Wavelet Transformation (data, array of psooible scale values, type of transformation)
-    :param mother_wavelet:
-    """
-
-    scalograms = []
-    iq_matrix = normalize(iq_burst)
-    scalograms = np.apply_along_axis(my_cwt,0,iq_matrix)
+    scalograms = np.apply_along_axis(my_cwt, 0, iq_matrix, transformation=transformation, scale=scale)
 
     stacked_scalogram = np.stack(scalograms)
     stacked_scalogram = np.maximum(np.median(stacked_scalogram) - 1., stacked_scalogram)
@@ -208,7 +160,7 @@ class _Segment(Dict, ABC):
         assert self['output_array'].ndim == 3, f'Output array must b 3D: is {self["output_array"].ndim} with segment id {self["segment_id"]}'
         assert isinstance(self['doppler_burst'], np.ndarray), f'Doppler burst must be nd.array: is {type(self["doppler_burst"])} with segment id {self["segment_id"]}'
         assert self['doppler_burst'].shape == (32, ), f'Doppler burst must have shape (32,): is {self["doppler_burst"].shape} with segment id {self["segment_id"]}'
-        assert isinstance(self['target_type'], np.bool_), f'Target type must be nd.array: is {type(self["target_type"])} with segment id {self["segment_id"]}'
+        assert isinstance(self['target_type'], bool), f'Target type must be nd.array: is {type(self["target_type"])} with segment id {self["segment_id"]}'
 
 
 class Config(Dict, ABC):
@@ -343,9 +295,9 @@ class DataDict(object):
             df_tracks['output_array'] = df_tracks['output_array'].progress_apply(iq_to_scalogram,
                                                                                  transformation=self.config['mother_wavelet'],
                                                                                  scale=self.config['wavelet_scale'])
-            val_tracks['output_array'] = val_tracks['iq_sweep_burst'].progress_apply(iq_to_scalogram,
-                                                                                     transformation=self.config['mother_wavelet'],
-                                                                                     scale=self.config['wavelet_scale'])
+            val_tracks['output_array'] = val_tracks['output_array'].progress_apply(iq_to_scalogram,
+                                                                                   transformation=self.config['mother_wavelet'],
+                                                                                   scale=self.config['wavelet_scale'])
         else:
             print('Converting IQ matricies to Spectrogram')
             df_tracks['output_array'] = df_tracks['output_array'].progress_apply(iq_to_spectogram)

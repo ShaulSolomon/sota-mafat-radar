@@ -28,9 +28,9 @@ sys.path.insert(0,os.path.join(PATH_ROOT))
 from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiStreamDataLoader
 
 
-config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=True, output_data_type='spectrogram',
+config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=True, output_data_type='scalogram',
                 get_horizontal_flip=True, get_vertical_flip=True, mother_wavelet='cgau1', wavelet_scale=3,
-                batch_size=5)
+                batch_size=50)
 
 dataset = DataDict(config=config)
 track_count = len(dataset.train_data) + len(dataset.val_data)
