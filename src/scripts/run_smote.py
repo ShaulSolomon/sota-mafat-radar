@@ -122,7 +122,7 @@ print(config)
 
 if WANDB_enable == True:
     print("wandb install and login start")    
-    subprocess.check_output(['sudo','./src/scripts/wandb_login.sh'])
+    subprocess.check_output(['sudo','sh',f"{PATH_ROOT}/src/scripts/wandb_login.sh"])
     import wandb
     runname = input("Enter WANDB runname:")
     notes = input("Enter run notes :")
@@ -172,24 +172,24 @@ if path.exists(full_data_picklefile):
     with open(full_data_picklefile, 'rb') as handle:
         full_data = pickle.load(handle)
 
-elif SMOTE_enable:
-    print('regenerating full_data + SMOTE')
-    save_pickle = True
+# elif SMOTE_enable:
+#     print('regenerating full_data + SMOTE')
+#     save_pickle = True
 
-    config_smote = config
-    config_smote['get_shifts'] = False
-    config_smote['get_horizontal_flip'] = False
-    config_smote['get_vertical_flip'] = False
+#     config_smote = config
+#     config_smote['get_shifts'] = False
+#     config_smote['get_horizontal_flip'] = False
+#     config_smote['get_vertical_flip'] = False
 
-    full_data = get_data_pipeline.pipeline_trainval_ram_reduced(PATH_DATA, config_smote)
-    print(len(full_data))
-    train_set = dataset_ram_reduced.DS(full_data)
-    train_y = np.array(full_data['target_type']=='human').astype(int)
-    train_set = smote_balance.run_smote(train_set,train_y)
+#     full_data = get_data_pipeline.pipeline_trainval_ram_reduced(PATH_DATA, config_smote)
+#     print(len(full_data))
+#     train_set = dataset_ram_reduced.DS(full_data)
+#     train_y = np.array(full_data['target_type']=='human').astype(int)
+#     train_set = smote_balance.run_smote(train_set,train_y)
 
-    full_data = get_data_pipeline.pipeline_trainval_ram_reduced(PATH_DATA, config,preprocess=False)
+#     full_data = get_data_pipeline.pipeline_trainval_ram_reduced(PATH_DATA, config,preprocess=False)
   
-    print(len(train_set))
+#     print(len(train_set))
 
 else:
     print('regenerating full_data')
