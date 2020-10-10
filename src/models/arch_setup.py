@@ -227,7 +227,7 @@ def accuracy_calc(outputs, labels):
     return np.sum(preds == labels) / len(preds)
 
 
-def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs, device, train_y, val_y, log=None,
+def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs, device, log=None,
                  WANDB_enable=False, wandb=None):
     # If we want to run more epochs, want to keep the same log of the old model
     if log:
