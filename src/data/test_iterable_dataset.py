@@ -29,7 +29,7 @@ from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiS
 
 config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=False, output_data_type='spectrogram',
                 get_horizontal_flip=False, get_vertical_flip=False, mother_wavelet='cgau1', wavelet_scale=3,
-                batch_size=50, tracks_in_memory=500)
+                batch_size=50, tracks_in_memory=500, include_doppler=True)
 
 dataset = DataDict(config=config)
 track_count = len(dataset.train_data) + len(dataset.val_data)

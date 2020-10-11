@@ -16,6 +16,7 @@ import os
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.getcwd()))))
 from src.data.get_data import append_dict, load_data, aux_split
+from src.features.specto_feat import max_value_on_doppler
 
 tqdm.pandas()
 
@@ -67,7 +68,7 @@ def normalize(iq):
     return (iq - m) / s
 
 
-def iq_to_spectogram(iq_burst, axis=0, doppler: bool = False):
+def iq_to_spectogram(iq_burst, axis=0):
     """
     Calculates spectrogram of 'iq_sweep_burst'.
 
@@ -159,7 +160,7 @@ class _Segment(Dict, ABC):
         assert self['doppler_burst'].shape == (
         32,), f'Doppler burst must have shape (32,): is {self["doppler_burst"].shape} with segment id {self["segment_id"]}'
         assert isinstance(self['target_type'],
-                          bool), f'Target type must be np.bool_: is {type(self["target_type"])} with segment id {self["segment_id"]}'
+                          int), f'Target type must be np.bool_: is {type(self["target_type"])} with segment id {self["segment_id"]}'
 
     def assert_valid_scalogram(self):
         assert isinstance(self['segment_id'], (
@@ -173,7 +174,7 @@ class _Segment(Dict, ABC):
         assert self['doppler_burst'].shape == (
         32,), f'Doppler burst must have shape (32,): is {self["doppler_burst"].shape} with segment id {self["segment_id"]}'
         assert isinstance(self['target_type'],
-                          bool), f'Target type must be nd.array: is {type(self["target_type"])} with segment id {self["segment_id"]}'
+                          int), f'Target type must be nd.array: is {type(self["target_type"])} with segment id {self["segment_id"]}'
 
 
 class Config(Dict, ABC):
@@ -193,6 +194,7 @@ class Config(Dict, ABC):
     get_horizontal_flip: bool
     get_vertical_flip: bool
     output_data_type: str
+    include_doppler: bool
     mother_wavelet: str
     wavelet_scale: int
     batch_size: int
@@ -278,7 +280,8 @@ class DataDict(object):
         df = self.data_df
         df = self.split_train_val_as_pd(data=df, ratio=self.config.get('valratio', 6))
         df.sort_values(by=['track_id', 'segment_id'], inplace=True)
-        df.replace({'animal': False, 'human': True}, inplace=True)
+        df.replace({'animal': 1, 'human': 0}, inplace=True)
+        df['target_type'] = df['target_type'].astype(int)
         # validating that each track consists of segments with same values in following columns
         columns_to_check = ['geolocation_type', 'geolocation_id', 'sensor_id', 'snr_type', 'date_index', 'target_type']
         conditions = [(df.groupby('track_id')[col].shift(0) == df.groupby('track_id')[col].shift(1).bfill())
@@ -302,9 +305,12 @@ class DataDict(object):
             output_array=pd.NamedAgg(column="iq_sweep_burst", aggfunc=list),
             doppler_burst=pd.NamedAgg(column="doppler_burst", aggfunc=list),
             )
+        df_tracks['target_type'] = df_tracks['target_type'].apply(lambda x: x[0])
+        val_tracks['target_type'] = val_tracks['target_type'].apply(lambda x: x[0])
+        df_tracks['doppler_burst'] = df_tracks['doppler_burst'].apply(lambda x: np.concatenate(x, axis=-1))
+        val_tracks['doppler_burst'] = val_tracks['doppler_burst'].apply(lambda x: np.concatenate(x, axis=-1))
         df_tracks['output_array'] = df_tracks['output_array'].apply(lambda x: np.concatenate(x, axis=1))
         val_tracks['output_array'] = val_tracks['output_array'].apply(lambda x: np.concatenate(x, axis=1))
-
         if self.output_data_type == 'scalogram':
             print('Converting IQ matricies to Scalogram')
             df_tracks['output_array'] = df_tracks['output_array'].progress_apply(iq_to_scalogram,
@@ -320,10 +326,12 @@ class DataDict(object):
             df_tracks['output_array'] = df_tracks['output_array'].progress_apply(iq_to_spectogram)
             val_tracks['output_array'] = val_tracks['output_array'].progress_apply(iq_to_spectogram)
 
-        df_tracks['doppler_burst'] = df_tracks['doppler_burst'].apply(lambda x: np.concatenate(x, axis=-1))
-        val_tracks['doppler_burst'] = val_tracks['doppler_burst'].apply(lambda x: np.concatenate(x, axis=-1))
-        df_tracks['target_type'] = df_tracks['target_type'].apply(lambda x: x[0])
-        val_tracks['target_type'] = val_tracks['target_type'].apply(lambda x: x[0])
+            if self.config.get('include_doppler'):
+                df_tracks['output_array'] = df_tracks.progress_apply(lambda row: max_value_on_doppler(row['output_array'], row['doppler_burst']), axis=1)
+                val_tracks['output_array'] = val_tracks.progress_apply(lambda row: max_value_on_doppler(row['output_array'], row['doppler_burst']), axis=1)
+            df_tracks['output_array'] = df_tracks['output_array'].progress_apply(normalize)
+            val_tracks['output_array'] = val_tracks['output_array'].progress_apply(normalize)
+
         train_segments = [_Segment(segment_id=f'{k[0]}_{k[1]}', **v) for k, v in
                           df_tracks.to_dict(orient='index').items()]
         val_segments = [_Segment(segment_id=f'{k[0]}_{k[1]}', **v) for k, v in
