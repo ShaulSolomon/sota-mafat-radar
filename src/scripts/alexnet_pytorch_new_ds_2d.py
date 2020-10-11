@@ -72,6 +72,7 @@ parser.add_argument('--epochs', type=int, default=10, help='number of epochs to 
 parser.add_argument('--full_data_pickle', type=str, default=None, help='pickle file with pre-compiled full_data dataframe')
 parser.add_argument('--pickle_save_fullpath', type=str, default=None, help='if provided, save the full_data dataframe to a different location (should be absolute path)')
 parser.add_argument('--output_data_type', type=str, default="spectogram", help='scalogram/spectogram')
+parser.add_argument('--include_doppler', type=bool, default=True, help='include the doppler in the iq matrix (for spectogram')
 
 args = parser.parse_args()
 
@@ -104,6 +105,7 @@ if 'args' in globals():
     config['get_horizontal_flip'] = args.get_horizontal_flip
     config['get_vertical_flip'] = args.get_vertical_flip
     config['output_data_type'] = args.output_data_type
+    config['include_doppler'] = args.include_doppler
     if args.shift_segment is not None:
         config['shift_segment'] = helpers.parse_range_list(args.shift_segment)
     if args.pickle_save_fullpath is not None:

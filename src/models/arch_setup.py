@@ -252,8 +252,8 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
             if step % 100 == 0:
                 logger.info(f"step {step}")
 
-            data = batch['output_array']
-            data = batch['target_type']
+            data = batch['output_array'].unsqueeze(-1)
+            labels = batch['target_type']
             tr_labels = np.append(tr_labels, labels)
 
             data = data.to(device, dtype=torch.float32)
