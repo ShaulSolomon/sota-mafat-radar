@@ -434,11 +434,18 @@ class StreamingDataset(IterableDataset):
         self.segment_blocks = []
         self.track_count = 0
         self.total_tracks = len(self.data) - 1
+        if config.get('get_shifts'):
+            segment_count = sum([(v['doppler_burst'].shape[0] - 31) for v in dataset.train_data]) + len(dataset.val_data)
+        else:
+            segment_count = dataset.data_df.shape[0]
+        if config.get('get_horizontal_flip'): segment_count *= 2
+        if config.get('get_vertical_flip'): segment_count *= 2
+        self.segment_count = segment_count
         if shuffle:
             random.shuffle(self.data)
 
     def __len__(self):
-        return len(self.data)
+        return self.segment_count
 
     def segments_generator(self, segment_list: _Segment) -> List[_Segment]:
         """
