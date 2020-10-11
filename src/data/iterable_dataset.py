@@ -80,6 +80,7 @@ def iq_to_spectogram(iq_burst, axis=0, doppler: bool = False):
     """
     iq = np.log(np.abs(np.fft.fft(hann(iq_burst), axis=axis)))
     iq = np.maximum(np.median(iq) - 1, iq)
+    iq = normalize(iq)
     return iq
 
 
