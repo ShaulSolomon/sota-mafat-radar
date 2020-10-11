@@ -119,7 +119,7 @@ print(config)
 
 if WANDB_enable == True:
     print("wandb install and login start")    
-    #subprocess.check_output(['sudo','./src/scripts/wandb_login.sh'])
+    subprocess.check_output(['sudo','./src/scripts/wandb_login.sh'])
     import wandb
     runname = input("Enter WANDB runname:")
     notes = input("Enter run notes :")
@@ -182,8 +182,8 @@ else:
     
     wandb.watch(model)
     wandb.config['data_config'] = config
-    wandb.config['train_size'] = len(full_data[full_data.is_validation==False])
-    wandb.config['val_size'] = len(full_data[full_data.is_validation==True])
+    #wandb.config['train_size'] = len(full_data[full_data.is_validation==False])
+    #wandb.config['val_size'] = len(full_data[full_data.is_validation==True])
     wandb.config['batch_size'] = batch_size
     wandb.config['learning rate'] = lr
     wandb.log(config)
