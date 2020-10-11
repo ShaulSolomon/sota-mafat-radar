@@ -435,9 +435,9 @@ class StreamingDataset(IterableDataset):
         self.track_count = 0
         self.total_tracks = len(self.data) - 1
         if config.get('get_shifts'):
-            segment_count = sum([(v['doppler_burst'].shape[0] - 31) for v in dataset.train_data]) + len(dataset.val_data)
+            segment_count = sum([(v['doppler_burst'].shape[0] - 31) for v in dataset])
         else:
-            segment_count = dataset.data_df.shape[0]
+            segment_count = len(dataset)
         if config.get('get_horizontal_flip'): segment_count *= 2
         if config.get('get_vertical_flip'): segment_count *= 2
         self.segment_count = segment_count
