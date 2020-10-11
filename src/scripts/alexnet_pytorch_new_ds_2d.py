@@ -199,21 +199,23 @@ log = arch_setup.train_epochs(
 #%%
 
 # this ugly code can be replaced in the future if we can do (causing error now):
-#  > sample = train_set[0:2]
+#  > sample = train_dataset[0:2]
  
-# sample_num = min(6000, len(train_set)) 
-# sample_ids = np.random.choice(len(train_set), sample_num, replace=False)
+# sample_num = min(6000, len(train_dataset)) 
+# sample_ids = np.random.choice(len(train_dataset), sample_num, replace=False)
 # sample_x = []
 # sample_y = []
 # for i in range(sample_num):
-#     sample_x.append(train_set[i][0])
-#     sample_y.append(train_set[i][1])   
+#     sample_x.append(train_dataset[i]['output_array'])
+#     sample_y.append(train_dataset[i]['target_type'])   
 # sample_x = np.stack( sample_x, axis=0 )
 # sample_y = np.stack( sample_y, axis=0 )
 
 # val_x = []
-# for i in range(len(val_set)):
-#     val_x.append(val_set[i][0])
+# val_y = []
+# for i in range(len(val_data)):
+#     val_x.append(val_data[i]['output_array'])
+#     val_y.append(val_data[i]['target_type'])
 # val_x = np.stack( val_x, axis=0 )
 
 # pred = [model(torch.from_numpy(sample_x).to(device, dtype=torch.float)).detach().cpu().numpy(),

@@ -314,7 +314,8 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
 
         for step, batch in enumerate(val_loader):
 
-            data, labels = batch
+            data = batch['output_array'].unsqueeze(-1)
+            labels = batch['target_type']
             val_labels = np.append(val_labels, labels)
 
             data = data.to(device, dtype=torch.float32)
