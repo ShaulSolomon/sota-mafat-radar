@@ -2,7 +2,7 @@
 """
 script to run 
 """
-#%%
+# %%
 import configparser
 from os import path
 import os
@@ -11,7 +11,7 @@ import sys
 PATH_ROOT = ""
 PATH_DATA = ""
 
-creds_path_ar = ["../../credentials.ini","credentials.ini"]
+creds_path_ar = ["../../credentials.ini", "credentials.ini"]
 PATH_ROOT = ""
 PATH_DATA = ""
 
@@ -25,9 +25,9 @@ for creds_path in creds_path_ar:
         ENV = config_parser['MAIN']["ENV"]
 
 # adding cwd to path to avoid "No module named src.*" errors
-sys.path.insert(0,os.path.join(PATH_ROOT))
+sys.path.insert(0, os.path.join(PATH_ROOT))
 
-#%%
+# %%
 import argparse
 import random
 import pickle
@@ -49,19 +49,20 @@ from termcolor import colored
 from src.data import feat_data, get_data, get_data_pipeline
 from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiStreamDataLoader
 from src.models import arch_setup, alex_model, dataset_ram_reduced
-from src.features import specto_feat,add_data
+from src.features import specto_feat, add_data
 from src.visualization import metrics
 from src.utils import helpers
 
 import logging
 
-
-#%%
+# %%
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--num_tracks', type=int, default=3,  help='num_tracks from auxilary')
-parser.add_argument('--val_ratio',  type=str, default=3, help='from good tracks, how many to take to validation set (1:X)')
-parser.add_argument('--shift_segment', type=str, help='shifts to use. can be single value, a range 1-31, or comma separated values')
+parser.add_argument('--num_tracks', type=int, default=3, help='num_tracks from auxilary')
+parser.add_argument('--val_ratio', type=str, default=3,
+                    help='from good tracks, how many to take to validation set (1:X)')
+parser.add_argument('--shift_segment', type=str,
+                    help='shifts to use. can be single value, a range 1-31, or comma separated values')
 parser.add_argument('--get_shifts', type=bool, default=False, help='whether to add shifts')
 parser.add_argument('--get_horizontal_flip', type=bool, default=False, help='whether to add horizontal flips')
 parser.add_argument('--get_vertical_flip', type=bool, default=False, help='whether to add vertical flips')
@@ -69,14 +70,17 @@ parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
 parser.add_argument('--learn_rate', type=float, default=1e-4, help='learn_rate')
 parser.add_argument('--wandb', type=bool, default=False, help='enable WANDB logging')
 parser.add_argument('--epochs', type=int, default=10, help='number of epochs to run')
-parser.add_argument('--full_data_pickle', type=str, default=None, help='pickle file with pre-compiled full_data dataframe')
-parser.add_argument('--pickle_save_fullpath', type=str, default=None, help='if provided, save the full_data dataframe to a different location (should be absolute path)')
+parser.add_argument('--full_data_pickle', type=str, default=None,
+                    help='pickle file with pre-compiled full_data dataframe')
+parser.add_argument('--pickle_save_fullpath', type=str, default=None,
+                    help='if provided, save the full_data dataframe to a different location (should be absolute path)')
 parser.add_argument('--output_data_type', type=str, default="spectogram", help='scalogram/spectogram')
-parser.add_argument('--include_doppler', type=bool, default=True, help='include the doppler in the iq matrix (for spectogram')
+parser.add_argument('--include_doppler', type=bool, default=True,
+                    help='include the doppler in the iq matrix (for spectogram')
 
 args = parser.parse_args()
 
-#%%
+# %%
 
 epochs = 10
 batch_size = 32
@@ -85,8 +89,8 @@ full_data_pickle = 'full_data.pickle'
 pickle_save_fullpath = None
 
 config = Config(
-    file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=True, 
-    output_data_type='spectogram',get_horizontal_flip=True, get_vertical_flip=True, 
+    file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=True,
+    output_data_type='spectogram', get_horizontal_flip=True, get_vertical_flip=True,
     mother_wavelet='cgau1', wavelet_scale=3, batch_size=50)
 
 if 'args' in globals():
@@ -98,9 +102,9 @@ if 'args' in globals():
     if full_data_pickle is not None and not path.exists(f"{PATH_DATA}/{full_data_pickle}"):
         print("args pickle file doesn't exists. abort...")
         sys.exit()
-    
+
     config['num_tracks'] = args.num_tracks
-    config['val_ratio'] = args.val_ratio   
+    config['val_ratio'] = args.val_ratio
     config['get_shifts'] = args.get_shifts
     config['get_horizontal_flip'] = args.get_horizontal_flip
     config['get_vertical_flip'] = args.get_vertical_flip
@@ -109,37 +113,37 @@ if 'args' in globals():
     if args.shift_segment is not None:
         config['shift_segment'] = helpers.parse_range_list(args.shift_segment)
     if args.pickle_save_fullpath is not None:
-        pickle_save_fullpath = f"{args.pickle_save_fullpath}/{full_data_pickle}"  
+        pickle_save_fullpath = f"{args.pickle_save_fullpath}/{full_data_pickle}"
 
 print(config)
 
-#%%
+# %%
 
 # if you want to run WANDB. run './src/scripts/wandb_login.sh' in shell (need to run only once per session/host)
 
 if WANDB_enable == True:
-    print("wandb install and login start")    
-    subprocess.check_output(['sudo','./src/scripts/wandb_login.sh'])
+    print("wandb install and login start")
+    subprocess.check_output(['sudo', './src/scripts/wandb_login.sh'])
     import wandb
+
     runname = input("Enter WANDB runname:")
     notes = input("Enter run notes :")
-    os.environ['WANDB_NOTEBOOK_NAME'] = os.path.splitext(os.path.basename(__file__))[0]	
+    os.environ['WANDB_NOTEBOOK_NAME'] = os.path.splitext(os.path.basename(__file__))[0]
 
-
-#%%
+# %%
 log_filename = "alexnet_pytorch.log"
 if os.path.exists(log_filename):
     os.remove(log_filename)
 
 logging.basicConfig(level=logging.INFO,
                     filename='alexnet_pytorch.log',
-                    format="%(asctime)s [%(levelname)s]|%(module)s:%(message)s",)
+                    format="%(asctime)s [%(levelname)s]|%(module)s:%(message)s", )
 logging.info("start")
 logger = logging.getLogger()
- 
+
 # Set seed for reproducibility of results
 seed_value = 0
-os.environ['PYTHONHASHSEED']=str(seed_value)
+os.environ['PYTHONHASHSEED'] = str(seed_value)
 
 random.seed(seed_value)
 np.random.seed(seed_value)
@@ -153,7 +157,7 @@ if torch.cuda.is_available():
 else:
     device = torch.device('cpu:0')
 
-#%%
+# %%
 
 dataset = DataDict(config=config)
 track_count = len(dataset.train_data) + len(dataset.val_data)
@@ -164,10 +168,9 @@ train_loader = DataLoader(train_dataset, batch_size=config['batch_size'])
 val_data = StreamingDataset(dataset.val_data, config, is_val=True, shuffle=True)
 val_loader = DataLoader(val_data, batch_size=config['batch_size'])
 
+# %%
 
-#%%
-
-model= alex_model.alex_mdf_model()
+model = alex_model.alex_mdf_model()
 # model.apply(init_weights)
 criterion = nn.BCELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
@@ -175,32 +178,31 @@ optimizer = optim.Adam(model.parameters(), lr=0.0001)
 model.to(device)
 
 if WANDB_enable == False:
-  wandb = None
+    wandb = None
 else:
-    wandb.init(project="sota-mafat-base",name=runname, notes=notes)
+    wandb.init(project="sota-mafat-base", name=runname, notes=notes, config=config)
     os.environ['WANDB_NOTEBOOK_NAME'] = '[SS]Alexnet_pytorch'
-    
-    wandb.watch(model)
-    wandb.config['data_config'] = config
-    #wandb.config['train_size'] = len(full_data[full_data.is_validation==False])
-    #wandb.config['val_size'] = len(full_data[full_data.is_validation==True])
-    wandb.config['batch_size'] = batch_size
-    wandb.config['learning rate'] = lr
-    wandb.log(config)
 
-#%%
+    wandb.watch(model)
+    # wandb.config['data_config'] = config
+    # #wandb.config['train_size'] = len(full_data[full_data.is_validation==False])
+    # #wandb.config['val_size'] = len(full_data[full_data.is_validation==True])
+    # wandb.config['batch_size'] = batch_size
+    # wandb.config['learning rate'] = lr
+    # wandb.log(config)
+
+# %%
 
 log = arch_setup.train_epochs(
-    train_loader,val_loader,model,criterion,optimizer,
-    num_epochs= epochs,device=device, 
-    WANDB_enable = WANDB_enable, wandb= wandb)
+    train_loader, val_loader, model, criterion, optimizer,
+    num_epochs=epochs, device=device,
+    WANDB_enable=WANDB_enable, wandb=wandb)
 
-
-#%%
+# %%
 
 # this ugly code can be replaced in the future if we can do (causing error now):
 #  > sample = train_dataset[0:2]
- 
+
 # sample_num = min(6000, len(train_dataset)) 
 # sample_ids = np.random.choice(len(train_dataset), sample_num, replace=False)
 # sample_x = []
