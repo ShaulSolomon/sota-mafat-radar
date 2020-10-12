@@ -244,10 +244,8 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
         tr_y_hat = np.array([])
         tr_labels = np.array([])
 
-        tk0 = mtqdm(tr_loader, total=int(len(tr_loader)))
-
         # train loop
-        for step, batch in enumerate(tk0):
+        for step, batch in enumerate(tqdm(tr_loader)):
 
             if step % 100 == 0:
                 logger.info(f"step {step}")
@@ -262,21 +260,6 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
             labels = labels.to(device, dtype=torch.float32)
 
             outputs = model(data)
-            snr = None  # added
-
-            # added
-            if isinstance(data, list):
-                snr = data[1].to(device, dtype=torch.float32)
-                data = data[0]
-
-            data = data.to(device, dtype=torch.float32)
-            labels = labels.to(device, dtype=torch.float32)
-
-            # added
-            if snr:
-                outputs = model(data, snr)
-            else:
-                outputs = model(data)
 
             labels = labels.view(-1, 1)
             outputs = outputs.view(-1, 1)
@@ -316,22 +299,16 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
 
         for step, batch in enumerate(val_loader):
 
-            data = batch['output_array'].unsqueeze(-1)
+            data = batch['output_array'].unsqueeze(1)
+            data = data.permute(0, 1, 3, 2)
+            data = data.repeat(1, 3, 1, 1)
             labels = batch['target_type']
             val_labels = np.append(val_labels, labels)
 
             data = data.to(device, dtype=torch.float32)
             labels = labels.to(device, dtype=torch.float32)
             outputs = model(data)
-            if isinstance(data, list):
-                snr = data[1].to(device, dtype=torch.float32)
-                data = data[0]
-            data = data.to(device, dtype=torch.float32)
-            labels = labels.to(device, dtype=torch.float32)
-            if snr is not None:
-                outputs = model(data, snr)
-            else:
-                outputs = model(data)
+
             labels = labels.view(-1, 1)
             outputs = outputs.view(-1, 1)
 
