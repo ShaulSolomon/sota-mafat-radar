@@ -253,6 +253,8 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
                 logger.info(f"step {step}")
 
             data = batch['output_array'].unsqueeze(1)
+            data = data.permute(0, 1, 3, 2)
+            data = data.repeat(1, 3, 1, 1)
             labels = batch['target_type']
             tr_labels = np.append(tr_labels, labels)
 
