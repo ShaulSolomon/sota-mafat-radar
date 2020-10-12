@@ -111,7 +111,7 @@ if 'args' in globals():
     config['output_data_type'] = args.output_data_type
     config['include_doppler'] = args.include_doppler
     if args.shift_segment is not None:
-        config['shift_segment'] = helpers.parse_range_list(args.shift_segment)
+        config['shift_segment'] = int(args.shift_segment) # helpers.parse_range_list(args.shift_segment)
     if args.pickle_save_fullpath is not None:
         pickle_save_fullpath = f"{args.pickle_save_fullpath}/{full_data_pickle}"
 
@@ -232,17 +232,25 @@ log = arch_setup.train_epochs(
 
 # # SUBMIT
 
-# test_path = 'MAFAT RADAR Challenge - Public Test Set V1'
-# test_df = get_data.load_data(test_path, PATH_DATA)
-# test_df = specto_feat.data_preprocess(test_df.copy())
-# test_x = test_df['iq_sweep_burst']
-# test_x = test_x.reshape(list(test_x.shape)+[1])
+#%%
 
-# # Creating DataFrame with the probability prediction for each segment
-# submission =  pd.DataFrame()
-# submission['segment_id'] = test_df['segment_id']
-# submission['prediction'] = model(torch.from_numpy(test_x).to(device).type(torch.float32)).detach().cpu().numpy()
-# submission['prediction'] = submission['prediction'].astype('float')
+test_path = 'MAFAT RADAR Challenge - Public Test Set V1'
+test_df = get_data.load_data(test_path, PATH_DATA)
+test_df = specto_feat.data_preprocess(test_df.copy())
+test_x = test_df['iq_sweep_burst']
+test_x = test_x.reshape(list(test_x.shape)+[1])
 
-# # Save submission
-# submission.to_csv('submission.csv', index=False)
+test_x = (torch.from_numpy(test_x))
+test_x = test_x.repeat(1,1,1,3)
+test_x = test_x.permute(0,3,2,1)
+
+# Creating DataFrame with the probability prediction for each segment
+submission =  pd.DataFrame()
+submission['segment_id'] = test_df['segment_id']
+submission['prediction'] = model(test_x.to(device).type(torch.float32)).detach().cpu().numpy()
+submission['prediction'] = submission['prediction'].astype('float')
+
+# Save submission
+submission.to_csv('submission.csv', index=False)
+
+# %%
