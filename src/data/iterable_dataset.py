@@ -428,7 +428,7 @@ class StreamingDataset(IterableDataset):
                  block_size -- {int} -- Max number of samples allowed to be held in a memory
         """
         super().__init__()
-        self.data = dataset[:250]
+        self.data = dataset
         self.config = config
         self.is_val = is_val
         self.segment_blocks = []
