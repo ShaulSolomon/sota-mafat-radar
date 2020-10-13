@@ -71,7 +71,7 @@ parser.add_argument('--epochs', type=int, default=10, help='number of epochs to 
 parser.add_argument('--full_data_pickle', type=str, default=None, help='pickle file with pre-compiled full_data dataframe')
 parser.add_argument('--pickle_save_fullpath', type=str, default=None, help='if provided, save the full_data dataframe to a different location (should be absolute path)')
 parser.add_argument('--smote', type=bool, default=False, help='run smote algorythm for imbalance datasets')
-
+parser.add_argument('--include_test_data', type=bool, default=False, help='Include the complete test dataset into the train/val.')
 args = parser.parse_args()
 
 #%%
@@ -83,6 +83,7 @@ full_data_pickle = 'full_data.pickle'
 pickle_save_fullpath = None
 SMOTE_enable = False
 config = dict()
+target = "private_test"  #public_test
 
 if 'args' in globals():
     batch_size = args.batch_size
@@ -100,6 +101,7 @@ if 'args' in globals():
     config['get_shifts'] = args.get_shifts
     config['get_horizontal_flip'] = args.get_horizontal_flip
     config['get_vertical_flip'] = args.get_vertical_flip
+    config['include_test_data'] = args.include_test_data
     if args.shift_segment is not None:
         config['shift_segment'] = helpers.parse_range_list(args.shift_segment)
     if args.pickle_save_fullpath is not None:
@@ -158,6 +160,8 @@ else:
 #%%
 
 full_data_picklefile = f"{PATH_DATA}/{full_data_pickle}"
+#print(f"getting full_data from pickle:{full_data_picklefile}")
+
 if pickle_save_fullpath is None:
     pickle_save_fullpath = full_data_picklefile
 
@@ -260,7 +264,7 @@ if WANDB_enable:
 
 # SUBMIT
 
-test_path = 'MAFAT RADAR Challenge - Public Test Set V1'
+test_path = 'MAFAT RADAR Challenge - Public Test Set V1' if target=="public_testset" else 'MAFAT RADAR Challenge - Private Test Set V1'
 test_df = get_data.load_data(test_path, PATH_DATA)
 test_df = specto_feat.data_preprocess(test_df.copy())
 test_x = test_df['iq_sweep_burst']

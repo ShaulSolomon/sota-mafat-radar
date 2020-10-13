@@ -211,6 +211,12 @@ def pipeline_trainval_ram_reduced(PATH_DATA, config = {}):
   train_path = 'MAFAT RADAR Challenge - Training Set V1'
   training_dict = get_data.load_data(train_path, PATH_DATA)
 
+  if config.get('include_test_data',False):
+    print("adding public testset")
+    full_test_path = 'MAFAT RADAR Challenge - FULL Public Test Set V1'
+    full_test_df =  get_data.load_data(full_test_path, PATH_DATA)
+    training_dict = get_data.append_dict(training_dict, full_test_df)
+
   if num_tracks==0:
     train_dict = training_dict
   else:

@@ -243,7 +243,9 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
 
         tk0 = mtqdm(tr_loader, total=int(len(tr_loader)))
 
+
         # train loop
+        model.train()
         for step, batch in enumerate(tk0):
 
             if step % 100 == 0:
@@ -306,8 +308,10 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
 
         logger.info("start validation")
 
+
         # validation loop
 
+        model.eval()
         for step, batch in enumerate(val_loader):
 
             data, labels = batch
@@ -356,6 +360,8 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
 
         if WANDB_enable:
             wandb.log(epoch_log)
+            torch.save(model, "./data/models/model.pth")
+            wandb.save("./data/models/model.pth")
 
     return training_log
 
