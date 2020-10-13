@@ -27,22 +27,17 @@ for creds_path in creds_path_ar:
 sys.path.insert(0, os.path.join(PATH_ROOT))
 from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiStreamDataLoader
 
-config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=False, output_data_type='spectrogram',
-                get_horizontal_flip=False, get_vertical_flip=False, mother_wavelet='cgau1', wavelet_scale=3,
-                batch_size=50, tracks_in_memory=500, include_doppler=True)
+config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=True, output_data_type='spectrogram',
+                get_horizontal_flip=True, get_vertical_flip=True, mother_wavelet='cgau1', wavelet_scale=3,
+                batch_size=50, tracks_in_memory=10, include_doppler=True, shift_segment=1, shuffle_stream=True)
 
 dataset = DataDict(config=config)
 track_count = len(dataset.train_data) + len(dataset.val_data)
-if config['get_shifts']: segment_count = sum([(v['doppler_burst'].shape[0] - 32) for v in dataset.train_data]) + len(dataset.val_data)
-else: segment_count = dataset.data_df.shape[0]
-if config['get_horizontal_flip']: segment_count *= 2
-if config['get_vertical_flip']: segment_count *= 2
-# train_datasets = StreamingDataset.split_track_dataset(dataset.train_data, config=config, max_workers=4)
-# train_loader = MultiStreamDataLoader(train_datasets)
 train_dataset = StreamingDataset(dataset.train_data, config, shuffle=True)
 train_loader = DataLoader(train_dataset, batch_size=config['batch_size'])
 val_data = StreamingDataset(dataset.val_data, config, is_val=True, shuffle=True)
 val_loader = DataLoader(val_data, batch_size=config['batch_size'])
+segment_count = len(train_dataset) + len(val_data)
 segment_ids = []
 train_sample_counts = []
 for sample in tqdm(train_loader):
