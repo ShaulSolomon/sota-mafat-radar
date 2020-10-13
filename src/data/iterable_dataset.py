@@ -134,10 +134,10 @@ def split_Nd_array(array: np.ndarray, nsplits: int) -> List[np.ndarray]:
     """
 
     if array.ndim == 1:
-        indices = range(0, len(array) - 32, nsplits)
+        indices = range(0, len(array) - 31, nsplits)
         segments = [np.take(array, np.arange(i, i + 32), axis=0).copy() for i in indices]
     else:
-        indices = range(0, array.shape[1] - 32, nsplits)
+        indices = range(0, array.shape[1] - 31, nsplits)
         segments = [np.take(array, np.arange(i, i + 32), axis=1).copy() for i in indices]
     return segments
 
@@ -280,7 +280,7 @@ class DataDict(object):
         df = self.data_df
         df = self.split_train_val_as_pd(data=df, ratio=self.config.get('valratio', 6))
         df.sort_values(by=['track_id', 'segment_id'], inplace=True)
-        df.replace({'animal': 1, 'human': 0}, inplace=True)
+        df.replace({'animal': 0, 'human': 1}, inplace=True)
         df['target_type'] = df['target_type'].astype(int)
         # validating that each track consists of segments with same values in following columns
         columns_to_check = ['geolocation_type', 'geolocation_id', 'sensor_id', 'snr_type', 'date_index', 'target_type']
@@ -383,7 +383,10 @@ def create_flipped_segments(segment_list: Union[List[_Segment], _Segment], flip_
                                              doppler_burst=burst_flip(segment['doppler_burst']).copy(),
                                              target_type=segment['target_type']))
     elif isinstance(segment_list, dict):
-        flipped_segments.append(segment_list)
+        flipped_segments.append(_Segment(segment_id=f'{segment_list["segment_id"]}_{0}',
+                                         output_array=flip(segment_list["output_array"]).copy(),
+                                         doppler_burst=burst_flip(segment_list['doppler_burst']).copy(),
+                                         target_type=segment_list['target_type']))
     return flipped_segments
 
 
@@ -434,10 +437,8 @@ class StreamingDataset(IterableDataset):
         self.segment_blocks = []
         self.track_count = 0
         self.total_tracks = len(self.data) - 1
-        if config.get('get_shifts'):
-            segment_count = sum([(v['doppler_burst'].shape[0] - 31) for v in dataset])
-        else:
-            segment_count = len(dataset)
+        segment_count = int(sum([(((len(v['doppler_burst'])/32)-1)*32/self.config.get('shift_segment', 32))+1
+                                 for v in self.data]))
         if config.get('get_horizontal_flip'): segment_count *= 2
         if config.get('get_vertical_flip'): segment_count *= 2
         self.segment_count = segment_count
@@ -464,9 +465,9 @@ class StreamingDataset(IterableDataset):
                      block_size -- {int} -- Max number of samples allowed to be held in a memory
         """
         if self.config.get('get_shifts'):
-            segment_list = create_new_segments_from_splits(segment_list, nsplits=1)
+            segment_list = create_new_segments_from_splits(segment_list, nsplits=self.config['shift_segment'])
         else:
-            segment_list = create_new_segments_from_splits(segment_list, nsplits=31)
+            segment_list = create_new_segments_from_splits(segment_list, nsplits=32)
 
         if self.config.get('get_vertical_flip'):
             flips = create_flipped_segments(segment_list, flip_type='vertical')
@@ -482,25 +483,29 @@ class StreamingDataset(IterableDataset):
                 segment.assert_valid_spectrogram()
         random.shuffle(segment_list)
         random.shuffle(self.segment_blocks)
-        # To pass all remaining segments in last iteration
-        if self.track_count == self.total_tracks:
-            segment_list.extend(self.segment_blocks)
-            self.segment_blocks = []
-            self.track_count += 1
-            return segment_list
-        else:
-            self.track_count += 1
-            self.segment_blocks.extend(segment_list)
-            random.shuffle(self.segment_blocks)
-            if self.track_count % self.config.get('tracks_in_memory', 100) == self.config.get('tracks_in_memory',
-                                                                                              100) - 1:
-                segment_list = self.segment_blocks
+        if self.config.get('shuffle_stream'):
+
+            # To pass all remaining segments in last iteration
+            if self.track_count == self.total_tracks:
+                segment_list.extend(self.segment_blocks)
                 self.segment_blocks = []
+                self.track_count += 1
                 return segment_list
             else:
-                half_a, half_b = split_list(self.segment_blocks)
-                self.segment_blocks = half_a
-                return half_b
+                self.track_count += 1
+                self.segment_blocks.extend(segment_list)
+                random.shuffle(self.segment_blocks)
+                if self.track_count % self.config.get('tracks_in_memory', 100) == self.config.get('tracks_in_memory',
+                                                                                                  100) - 1:
+                    segment_list = self.segment_blocks
+                    self.segment_blocks = []
+                    return segment_list
+                else:
+                    half_a, half_b = split_list(self.segment_blocks)
+                    self.segment_blocks = half_a
+                    return half_b
+        else:
+            return segment_list
 
     def process_data(self):
         return chain(self.segments_generator(track) for track in self.data)
