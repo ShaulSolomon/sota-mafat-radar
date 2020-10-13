@@ -206,8 +206,6 @@ if config.get('include_doppler'):
     test_df['output_array'] = test_df.progress_apply(lambda row: specto_feat.max_value_on_doppler(row['output_array'], row['doppler_burst']), axis=1)
 test_df['output_array'] = test_df['output_array'].progress_apply(normalize)
 test_x = torch.from_numpy(np.stack(test_df['output_array'].tolist(), axis=0).astype(np.float32)).unsqueeze(1)
-test_x = test_x.permute(0, 1, 3, 2)
-test_x = test_x.repeat(1, 3, 1, 1)
 
 # Creating DataFrame with the probability prediction for each segment
 submission = pd.DataFrame()
