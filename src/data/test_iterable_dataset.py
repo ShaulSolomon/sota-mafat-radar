@@ -1,4 +1,4 @@
-#%%
+# %%
 # import configparser
 from os import path
 import os
@@ -11,7 +11,7 @@ from tqdm import tqdm
 PATH_ROOT = ""
 PATH_DATA = ""
 
-creds_path_ar = ["../../credentials.ini","credentials.ini"]
+creds_path_ar = ["../../credentials.ini", "credentials.ini"]
 
 for creds_path in creds_path_ar:
     if path.exists(creds_path):
@@ -22,19 +22,21 @@ for creds_path in creds_path_ar:
         WANDB_enable = config_parser['MAIN']["WANDB_ENABLE"] == 'TRUE'
         ENV = config_parser['MAIN']["ENV"]
 
-#%%
+# %%
 # adding cwd to path to avoid "No module named src.*" errors
-sys.path.insert(0,os.path.join(PATH_ROOT))
+sys.path.insert(0, os.path.join(PATH_ROOT))
 from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiStreamDataLoader
 
-
-config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=True, output_data_type='scalogram',
-                get_horizontal_flip=True, get_vertical_flip=True, mother_wavelet='cgau1', wavelet_scale=3,
-                batch_size=50)
+config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=False, output_data_type='spectrogram',
+                get_horizontal_flip=False, get_vertical_flip=False, mother_wavelet='cgau1', wavelet_scale=3,
+                batch_size=50, tracks_in_memory=500, include_doppler=True)
 
 dataset = DataDict(config=config)
 track_count = len(dataset.train_data) + len(dataset.val_data)
-segment_count = dataset.data_df.shape[0]
+if config['get_shifts']: segment_count = sum([(v['doppler_burst'].shape[0] - 32) for v in dataset.train_data]) + len(dataset.val_data)
+else: segment_count = dataset.data_df.shape[0]
+if config['get_horizontal_flip']: segment_count *= 2
+if config['get_vertical_flip']: segment_count *= 2
 # train_datasets = StreamingDataset.split_track_dataset(dataset.train_data, config=config, max_workers=4)
 # train_loader = MultiStreamDataLoader(train_datasets)
 train_dataset = StreamingDataset(dataset.train_data, config, shuffle=True)
@@ -54,9 +56,3 @@ print(f'Total segments generated: {count}')
 print(f'Total segments expected: {segment_count}')
 print(f'Segments missing: {segment_count - count}')
 print(f'Tracks created: {track_count}')
-
-
-
-
-
-
