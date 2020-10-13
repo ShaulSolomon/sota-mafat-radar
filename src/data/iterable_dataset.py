@@ -448,7 +448,7 @@ class StreamingDataset(IterableDataset):
     def __len__(self):
         return self.segment_count
 
-    def segments_generator(self, segment_list: _Segment) -> List[_Segment]:
+    def segments_generator(self, segment_list: _Segment) -> Union[List[_Segment], None]:
         """
         Generates new and/or augmented segments according to configuration parameters.
         Returns a dictionary containing the merged set of segments indexed by
@@ -481,46 +481,42 @@ class StreamingDataset(IterableDataset):
                 segment.assert_valid_scalogram()
             else:
                 segment.assert_valid_spectrogram()
-        random.shuffle(segment_list)
-        random.shuffle(self.segment_blocks)
         if self.config.get('shuffle_stream'):
-
-            # To pass all remaining segments in last iteration
-            if self.track_count == self.total_tracks:
-                segment_list.extend(self.segment_blocks)
-                self.segment_blocks = []
-                self.track_count += 1
-                return segment_list
-            else:
-                self.track_count += 1
-                self.segment_blocks.extend(segment_list)
-                random.shuffle(self.segment_blocks)
-                if self.track_count % self.config.get('tracks_in_memory', 100) == self.config.get('tracks_in_memory',
-                                                                                                  100) - 1:
-                    segment_list = self.segment_blocks
-                    self.segment_blocks = []
-                    return segment_list
-                else:
-                    half_a, half_b = split_list(self.segment_blocks)
-                    self.segment_blocks = half_a
-                    return half_b
+            self.segment_blocks.extend(segment_list)
+            random.shuffle(self.segment_blocks)
         else:
             return segment_list
 
-    def process_data(self):
+    def process_tracks_shuffle(self):
+        for i, track in enumerate(self.data):
+            self.segments_generator(track)
+            if i % self.config.get('tracks_in_memory', 100) == self.config.get('tracks_in_memory', 100)-1:
+                yield self.segment_blocks
+        yield self.segment_blocks
+
+    def shuffle_stream(self):
+        return chain(self.process_tracks_shuffle())
+
+    def linear_stream(self):
         return chain(self.segments_generator(track) for track in self.data)
 
     def __iter__(self):
-        for segments in chain(self.process_data()):
-            yield from segments
+        if self.config.get('shuffle_stream'):
+            for segments in chain(self.shuffle_stream()):
+                yield from segments
+        else:
+            for segments in chain(self.linear_stream()):
+                yield from segments
 
 
 class MultiStreamDataLoader:
-    def __init__(self, datasets):
+    def __init__(self, datasets, config):
         self.datasets = datasets
+        self.config = config
 
     def get_stream_loaders(self):
-        return zip(*[DataLoader(dataset=dataset, num_workers=1, batch_size=2) for dataset in self.datasets])
+        return zip(*[DataLoader(StreamingDataset(dataset=dataset, config=self.config), num_workers=1, batch_size=1)
+                     for dataset in self.datasets])
 
     def __iter__(self):
         for batch_parts in self.get_stream_loaders():
