@@ -29,7 +29,7 @@ from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiS
 
 config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=True, output_data_type='spectrogram',
                 get_horizontal_flip=True, get_vertical_flip=True, mother_wavelet='cgau1', wavelet_scale=3,
-                batch_size=50, tracks_in_memory=10, include_doppler=True, shift_segment=32, shuffle_stream=True)
+                batch_size=50, tracks_in_memory=2, include_doppler=True, shift_segment=16, shuffle_stream=True)
 
 dataset = DataDict(config=config)
 track_count = len(dataset.train_data) + len(dataset.val_data)
@@ -40,7 +40,7 @@ val_loader = DataLoader(val_data, batch_size=config['batch_size'])
 segment_count = len(train_dataset) + len(val_data)
 segment_ids = []
 train_sample_counts = []
-for sample in tqdm(train_loader, total=len(train_loader.dataset)):
+for sample in tqdm(train_loader):
     sample_len = len(sample['target_type'])
     train_sample_counts.append(sample_len)
     segment_ids.append(sample['segment_id'])

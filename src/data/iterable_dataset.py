@@ -488,16 +488,16 @@ class StreamingDataset(IterableDataset):
                 segment.assert_valid_scalogram()
             else:
                 segment.assert_valid_spectrogram()
-        if self.config.get('shuffle_stream'):
-            self.segment_blocks.extend(segment_list)
-            random.shuffle(self.segment_blocks)
-        else:
-            return segment_list
+        # if self.config.get('shuffle_stream'):
+        self.segment_blocks.extend(segment_list)
+        random.shuffle(self.segment_blocks)
+        # else:
+        #     return segment_list
 
     def process_tracks_shuffle(self):
         for i, track in enumerate(self.data):
             self.segments_generator(track)
-            if i % self.config.get('tracks_in_memory', 100) == self.config.get('tracks_in_memory', 100)-1:
+            if i % self.config.get('tracks_in_memory', 100) == self.config.get('tracks_in_memory', 100):
                 yield self.segment_blocks
         yield self.segment_blocks
 
@@ -508,12 +508,12 @@ class StreamingDataset(IterableDataset):
         return chain(self.segments_generator(track) for track in self.data)
 
     def __iter__(self):
-        if self.config.get('shuffle_stream'):
-            for segments in chain(self.shuffle_stream()):
-                yield from segments
-        else:
-            for segments in chain(self.linear_stream()):
-                yield from segments
+        # if self.config.get('shuffle_stream'):
+        for segments in chain(self.shuffle_stream()):
+            yield from segments
+        # else:
+        #     for segments in chain(self.linear_stream()):
+        #         yield from segments
 
 
 class MultiStreamDataLoader:
