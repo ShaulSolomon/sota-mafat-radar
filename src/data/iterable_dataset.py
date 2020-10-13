@@ -147,6 +147,7 @@ class _Segment(Dict, ABC):
     output_array: np.ndarray
     doppler_burst: np.ndarray
     target_type: np.ndarray
+    segment_count: int
 
     def assert_valid_spectrogram(self):
         assert isinstance(self['segment_id'], (
@@ -299,11 +300,13 @@ class DataDict(object):
             target_type=pd.NamedAgg(column="target_type", aggfunc='unique'),
             output_array=pd.NamedAgg(column="iq_sweep_burst", aggfunc=list),
             doppler_burst=pd.NamedAgg(column="doppler_burst", aggfunc=list),
+            segment_count=pd.NamedAgg(column="segment_id", aggfunc='count'),
             )
         val_tracks = val_df.groupby(['track_id', 'segment_id']).agg(
             target_type=pd.NamedAgg(column="target_type", aggfunc='unique'),
             output_array=pd.NamedAgg(column="iq_sweep_burst", aggfunc=list),
             doppler_burst=pd.NamedAgg(column="doppler_burst", aggfunc=list),
+            segment_count=pd.NamedAgg(column="target_type", aggfunc='count'),
             )
         df_tracks['target_type'] = df_tracks['target_type'].apply(lambda x: x[0])
         val_tracks['target_type'] = val_tracks['target_type'].apply(lambda x: x[0])
@@ -352,7 +355,9 @@ def create_new_segments_from_splits(segment: _Segment, nsplits: int) -> List[_Se
         new_segments.extend([_Segment(segment_id=f'{segment["segment_id"]}_{j}',
                                       output_array=array,
                                       doppler_burst=bursts[j],
-                                      target_type=segment['target_type']) for j, array in enumerate(output_array)])
+                                      target_type=segment['target_type'],
+                                      segment_count=1)
+                             for j, array in enumerate(output_array)])
 
     else:
         new_segments.append(segment)
@@ -381,12 +386,14 @@ def create_flipped_segments(segment_list: Union[List[_Segment], _Segment], flip_
             flipped_segments.append(_Segment(segment_id=f'{segment["segment_id"]}_{i}',
                                              output_array=flip(segment["output_array"]).copy(),
                                              doppler_burst=burst_flip(segment['doppler_burst']).copy(),
-                                             target_type=segment['target_type']))
+                                             target_type=segment['target_type'],
+                                             segment_count=1))
     elif isinstance(segment_list, dict):
         flipped_segments.append(_Segment(segment_id=f'{segment_list["segment_id"]}_{0}',
                                          output_array=flip(segment_list["output_array"]).copy(),
                                          doppler_burst=burst_flip(segment_list['doppler_burst']).copy(),
-                                         target_type=segment_list['target_type']))
+                                         target_type=segment_list['target_type'],
+                                         segment_count=1))
     return flipped_segments
 
 
@@ -437,7 +444,7 @@ class StreamingDataset(IterableDataset):
         self.segment_blocks = []
         self.track_count = 0
         self.total_tracks = len(self.data) - 1
-        segment_count = int(sum([(((len(v['doppler_burst'])/32)-1)*32/self.config.get('shift_segment', 32))+1
+        segment_count = int(sum([((v['segment_count']-1)*32/self.config.get('shift_segment', 32))+1
                                  for v in self.data]))
         if config.get('get_horizontal_flip'): segment_count *= 2
         if config.get('get_vertical_flip'): segment_count *= 2

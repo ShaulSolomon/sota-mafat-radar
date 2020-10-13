@@ -61,15 +61,15 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--num_tracks', type=int, default=3, help='num_tracks from auxilary')
 parser.add_argument('--val_ratio', type=str, default=6,
                     help='from good tracks, how many to take to validation set (1:X)')
-parser.add_argument('--shift_segment', type=int, default=6,
+parser.add_argument('--shift_segment', type=int, default=16,
                     help='shifts to use. can be single value, a range 1-31, or comma separated values')
 parser.add_argument('--get_shifts', type=bool, default=True, help='whether to add shifts')
-parser.add_argument('--get_horizontal_flip', type=bool, default=True, help='whether to add horizontal flips')
-parser.add_argument('--get_vertical_flip', type=bool, default=True, help='whether to add vertical flips')
-parser.add_argument('--batch_size', type=int, default=50, help='batch_size')
+parser.add_argument('--get_horizontal_flip', type=bool, default=False, help='whether to add horizontal flips')
+parser.add_argument('--get_vertical_flip', type=bool, default=False, help='whether to add vertical flips')
+parser.add_argument('--batch_size', type=int, default=200, help='batch_size')
 parser.add_argument('--learn_rate', type=float, default=1e-4, help='learn_rate')
-parser.add_argument('--wandb', type=bool, default=True, help='enable WANDB logging')
-parser.add_argument('--epochs', type=int, default=50, help='number of epochs to run')
+parser.add_argument('--wandb', type=bool, default=False, help='enable WANDB logging')
+parser.add_argument('--epochs', type=int, default=1, help='number of epochs to run')
 parser.add_argument('--full_data_pickle', type=str, default=None,
                     help='pickle file with pre-compiled full_data dataframe')
 parser.add_argument('--pickle_save_fullpath', type=str, default=None,
