@@ -1,3 +1,4 @@
+import logging
 from torch.utils.data import Dataset, DataLoader
 import torch
 import numpy as np
@@ -5,6 +6,8 @@ from sklearn.metrics import roc_auc_score, roc_curve, auc
 import matplotlib.pyplot as plt
 from src.visualization import metrics
 from tqdm import tqdm
+
+logger = logging.getLogger()
 
 
 class DS(Dataset):
@@ -99,8 +102,6 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-
-            pbar.update()
 
         val_loss = 0
         val_size = 0
