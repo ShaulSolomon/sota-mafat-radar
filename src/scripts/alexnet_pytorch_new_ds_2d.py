@@ -77,6 +77,10 @@ parser.add_argument('--pickle_save_fullpath', type=str, default=None,
 parser.add_argument('--output_data_type', type=str, default="spectrogram", help='scalogram/spectrogram')
 parser.add_argument('--include_doppler', type=bool, default=True,
                     help='include the doppler in the iq matrix (for spectogram')
+parser.add_argument('--shuffle_stream', type=bool, default=True,
+                    help='Shuffle the track streaming')
+parser.add_argument('--tracks_in_memory', type=int, default=20,
+                    help='How many tracks to keep in memory before flushing')
 
 args = parser.parse_args()
 

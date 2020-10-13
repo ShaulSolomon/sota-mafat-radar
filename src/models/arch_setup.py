@@ -250,9 +250,7 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
             if step % 100 == 0:
                 logger.info(f"step {step}")
 
-            data = batch['output_array'].unsqueeze(1)
-            data = data.permute(0, 1, 3, 2)
-            data = data.repeat(1, 3, 1, 1)
+            data = batch['output_array'].unsqueeze(1) # data will have format (batch_size, channel (1), slow_time, long_time), each model needs to take care of it's own permutations
             labels = batch['target_type']
             tr_labels = np.append(tr_labels, labels)
 

@@ -47,7 +47,9 @@ class alex_mdf_model(nn.Module):
             if "MaxPool" in str(layer):
                 self.arch.features[i] = nn.MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
 
-    def forward(self,x):
+    def forward(self, x):
+        x = x.permute(0, 1, 3, 2)
+        x = x.repeat(1, 3, 1, 1)
         x = self.arch(x)
         return torch.sigmoid(x)
 
