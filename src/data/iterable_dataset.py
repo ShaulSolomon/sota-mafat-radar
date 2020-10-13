@@ -280,7 +280,7 @@ class DataDict(object):
         df = self.data_df
         df = self.split_train_val_as_pd(data=df, ratio=self.config.get('valratio', 6))
         df.sort_values(by=['track_id', 'segment_id'], inplace=True)
-        df.replace({'animal': 1, 'human': 0}, inplace=True)
+        df.replace({'animal': 0, 'human': 1}, inplace=True)
         df['target_type'] = df['target_type'].astype(int)
         # validating that each track consists of segments with same values in following columns
         columns_to_check = ['geolocation_type', 'geolocation_id', 'sensor_id', 'snr_type', 'date_index', 'target_type']
@@ -383,7 +383,10 @@ def create_flipped_segments(segment_list: Union[List[_Segment], _Segment], flip_
                                              doppler_burst=burst_flip(segment['doppler_burst']).copy(),
                                              target_type=segment['target_type']))
     elif isinstance(segment_list, dict):
-        flipped_segments.append(segment_list)
+        flipped_segments.append(_Segment(segment_id=f'{segment_list["segment_id"]}_{0}',
+                                         output_array=flip(segment_list["output_array"]).copy(),
+                                         doppler_burst=burst_flip(segment_list['doppler_burst']).copy(),
+                                         target_type=segment_list['target_type']))
     return flipped_segments
 
 

@@ -8,12 +8,11 @@ from os import path
 import os
 import sys
 
+
 PATH_ROOT = ""
 PATH_DATA = ""
 
 creds_path_ar = ["../../credentials.ini", "credentials.ini"]
-PATH_ROOT = ""
-PATH_DATA = ""
 
 for creds_path in creds_path_ar:
     if path.exists(creds_path):
@@ -47,7 +46,8 @@ from matplotlib.colors import LinearSegmentedColormap
 from termcolor import colored
 
 from src.data import feat_data, get_data, get_data_pipeline
-from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiStreamDataLoader
+from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiStreamDataLoader, iq_to_spectogram, \
+    normalize
 from src.models import arch_setup, alex_model, dataset_ram_reduced
 from src.features import specto_feat, add_data
 from src.visualization import metrics
@@ -59,61 +59,33 @@ import logging
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--num_tracks', type=int, default=3, help='num_tracks from auxilary')
-parser.add_argument('--val_ratio', type=str, default=3,
+parser.add_argument('--val_ratio', type=str, default=6,
                     help='from good tracks, how many to take to validation set (1:X)')
-parser.add_argument('--shift_segment', type=str,
+parser.add_argument('--shift_segment', type=int, default=6,
                     help='shifts to use. can be single value, a range 1-31, or comma separated values')
-parser.add_argument('--get_shifts', type=bool, default=False, help='whether to add shifts')
-parser.add_argument('--get_horizontal_flip', type=bool, default=False, help='whether to add horizontal flips')
-parser.add_argument('--get_vertical_flip', type=bool, default=False, help='whether to add vertical flips')
-parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
+parser.add_argument('--get_shifts', type=bool, default=True, help='whether to add shifts')
+parser.add_argument('--get_horizontal_flip', type=bool, default=True, help='whether to add horizontal flips')
+parser.add_argument('--get_vertical_flip', type=bool, default=True, help='whether to add vertical flips')
+parser.add_argument('--batch_size', type=int, default=50, help='batch_size')
 parser.add_argument('--learn_rate', type=float, default=1e-4, help='learn_rate')
-parser.add_argument('--wandb', type=bool, default=False, help='enable WANDB logging')
-parser.add_argument('--epochs', type=int, default=10, help='number of epochs to run')
+parser.add_argument('--wandb', type=bool, default=True, help='enable WANDB logging')
+parser.add_argument('--epochs', type=int, default=50, help='number of epochs to run')
 parser.add_argument('--full_data_pickle', type=str, default=None,
                     help='pickle file with pre-compiled full_data dataframe')
 parser.add_argument('--pickle_save_fullpath', type=str, default=None,
                     help='if provided, save the full_data dataframe to a different location (should be absolute path)')
-parser.add_argument('--output_data_type', type=str, default="spectogram", help='scalogram/spectogram')
+parser.add_argument('--output_data_type', type=str, default="spectrogram", help='scalogram/spectrogram')
 parser.add_argument('--include_doppler', type=bool, default=True,
                     help='include the doppler in the iq matrix (for spectogram')
 
 args = parser.parse_args()
 
-# %%
+batch_size = args.batch_size
+lr = args.learn_rate
+WANDB_enable = args.wandb
+epochs = args.epochs
 
-epochs = 10
-batch_size = 32
-lr = 1e-4
-full_data_pickle = 'full_data.pickle'
-pickle_save_fullpath = None
-
-config = Config(
-    file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=True,
-    output_data_type='spectogram', get_horizontal_flip=True, get_vertical_flip=True,
-    mother_wavelet='cgau1', wavelet_scale=3, batch_size=50)
-
-if 'args' in globals():
-    batch_size = args.batch_size
-    lr = args.learn_rate
-    WANDB_enable = args.wandb
-    epochs = args.epochs
-    full_data_pickle = args.full_data_pickle
-    if full_data_pickle is not None and not path.exists(f"{PATH_DATA}/{full_data_pickle}"):
-        print("args pickle file doesn't exists. abort...")
-        sys.exit()
-
-    config['num_tracks'] = args.num_tracks
-    config['val_ratio'] = args.val_ratio
-    config['get_shifts'] = args.get_shifts
-    config['get_horizontal_flip'] = args.get_horizontal_flip
-    config['get_vertical_flip'] = args.get_vertical_flip
-    config['output_data_type'] = args.output_data_type
-    config['include_doppler'] = args.include_doppler
-    if args.shift_segment is not None:
-        config['shift_segment'] = helpers.parse_range_list(args.shift_segment)
-    if args.pickle_save_fullpath is not None:
-        pickle_save_fullpath = f"{args.pickle_save_fullpath}/{full_data_pickle}"
+config = Config(file_path=PATH_DATA, **vars(args))
 
 print(config)
 
@@ -122,10 +94,8 @@ print(config)
 # if you want to run WANDB. run './src/scripts/wandb_login.sh' in shell (need to run only once per session/host)
 
 if WANDB_enable == True:
-    print("wandb install and login start")
-    subprocess.check_output(['sudo', './src/scripts/wandb_login.sh'])
     import wandb
-
+    wandb.login()
     runname = input("Enter WANDB runname:")
     notes = input("Enter run notes :")
     os.environ['WANDB_NOTEBOOK_NAME'] = os.path.splitext(os.path.basename(__file__))[0]
@@ -181,15 +151,8 @@ if WANDB_enable == False:
     wandb = None
 else:
     wandb.init(project="sota-mafat-base", name=runname, notes=notes, config=config)
-    os.environ['WANDB_NOTEBOOK_NAME'] = '[SS]Alexnet_pytorch'
-
+    os.environ['WANDB_NOTEBOOK_NAME'] = os.path.splitext(os.path.basename(__file__))[0]
     wandb.watch(model)
-    # wandb.config['data_config'] = config
-    # #wandb.config['train_size'] = len(full_data[full_data.is_validation==False])
-    # #wandb.config['val_size'] = len(full_data[full_data.is_validation==True])
-    # wandb.config['batch_size'] = batch_size
-    # wandb.config['learning rate'] = lr
-    # wandb.log(config)
 
 # %%
 
@@ -232,17 +195,27 @@ log = arch_setup.train_epochs(
 
 # # SUBMIT
 
-# test_path = 'MAFAT RADAR Challenge - Public Test Set V1'
-# test_df = get_data.load_data(test_path, PATH_DATA)
-# test_df = specto_feat.data_preprocess(test_df.copy())
-# test_x = test_df['iq_sweep_burst']
-# test_x = test_x.reshape(list(test_x.shape)+[1])
+test_path = 'MAFAT RADAR Challenge - FULL Public Test Set V1'
+test_df = pd.DataFrame.from_dict(get_data.load_data(test_path, PATH_DATA), orient='index').transpose()
+test_df['output_array'] = test_df['iq_sweep_burst'].progress_apply(iq_to_spectogram)
+if config.get('include_doppler'):
+    test_df['output_array'] = test_df.progress_apply(lambda row: specto_feat.max_value_on_doppler(row['output_array'], row['doppler_burst']), axis=1)
+test_df['output_array'] = test_df['output_array'].progress_apply(normalize)
+test_x = torch.from_numpy(np.stack(test_df['output_array'].tolist(), axis=0).astype(np.float32)).unsqueeze(1)
+test_x = test_x.permute(0, 1, 3, 2)
+test_x = test_x.repeat(1, 3, 1, 1)
 
-# # Creating DataFrame with the probability prediction for each segment
-# submission =  pd.DataFrame()
-# submission['segment_id'] = test_df['segment_id']
-# submission['prediction'] = model(torch.from_numpy(test_x).to(device).type(torch.float32)).detach().cpu().numpy()
-# submission['prediction'] = submission['prediction'].astype('float')
+# Creating DataFrame with the probability prediction for each segment
+submission = pd.DataFrame()
+submission[['segment_id', 'label']] = test_df[['segment_id', 'target_type']]
+submission['prediction'] = model(test_x.to(device)).detach().cpu().numpy()
+submission['label'] = test_df['target_type']
 
-# # Save submission
-# submission.to_csv('submission.csv', index=False)
+# Save submission
+submission.to_csv('submission.csv', index=False)
+
+#print performance stats
+roc = roc_curve(submission['label'], submission['prediction'])
+tr_fpr, tr_tpr, _ = roc_curve(submission['label'], submission['prediction'])
+auc_score = auc(tr_fpr, tr_tpr)
+print(f'AUC Score: {auc_score}, Accuracy score: {arch_setup.accuracy_calc(submission["prediction"], submission["label"])}')
