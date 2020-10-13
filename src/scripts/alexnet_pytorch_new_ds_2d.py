@@ -81,6 +81,8 @@ parser.add_argument('--shuffle_stream', type=bool, default=True,
                     help='Shuffle the track streaming')
 parser.add_argument('--tracks_in_memory', type=int, default=20,
                     help='How many tracks to keep in memory before flushing')
+parser.add_argument('--include_test_data', type=bool, default=False,
+                    help='Include the complete test dataset into the train/val.')
 
 args = parser.parse_args()
 

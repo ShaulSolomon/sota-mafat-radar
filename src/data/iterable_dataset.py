@@ -241,8 +241,15 @@ class DataDict(object):
         train_path = 'MAFAT RADAR Challenge - Training Set V1'
         training_dict = load_data(train_path, self.file_path)
 
+        training_dict = append_dict(training_dict, train_aux)
+
+        if self.config.get('include_test_data'):
+            full_test_path = 'MAFAT RADAR Challenge - FULL Public Test Set V1'
+            full_test_df =  load_data(full_test_path, self.file_path)
+            training_dict = append_dict(training_dict, full_test_df)
+
         # Adding segments from the experiment auxiliary set to the training set
-        return pd.DataFrame.from_dict(append_dict(training_dict, train_aux), orient='index').transpose()
+        return pd.DataFrame.from_dict(training_dict, orient='index').transpose()
 
     @staticmethod
     def split_train_val_as_pd(data, ratio=6):
