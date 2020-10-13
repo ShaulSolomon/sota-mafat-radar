@@ -45,8 +45,9 @@ def accuracy_calc(outputs, labels):
     #print("acc2:",preds)
     return np.sum(preds == labels) / len(preds)
 
-def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, device,train_y,val_y,log=None,WANDB_enable = False,wandb=None):
 
+def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs, device, log=None,
+                 WANDB_enable=False, wandb=None):
     # If we want to run more epochs, want to keep the same log of the old model
     if log:
         training_log = log
@@ -62,31 +63,22 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         tr_y_hat = np.array([])
         tr_labels = np.array([])
 
-        #train loop
-        pbar = tqdm(total=len(tr_loader),position=0,leave=True)
+        # train loop
+        for step, batch in enumerate(tqdm(tr_loader)):
+            model.train()
 
-        for step,batch in enumerate(tr_loader):
+            if step % 100 == 0:
+                logger.info(f"step {step}")
 
-            data, labels = batch
-            tr_labels = np.append(tr_labels,labels)
+            data = batch['output_array'].unsqueeze(1) # data will have format (batch_size, channel (1), slow_time, long_time), each model needs to take care of it's own permutations
+            labels = batch['target_type']
+            tr_labels = np.append(tr_labels, labels)
+
 
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
 
             outputs = model(data)
-            snr = None  #added
-
-            #added
-            if isinstance(data, list):
-              snr = data[1].to(device,dtype=torch.float32)
-              data = data[0]
-
-            # added
-            if snr:
-              outputs = model(data,snr)
-            else:
-              outputs = model(data)
-
             labels = labels.view(-1,1)
             outputs = outputs.view(-1,1)
 
@@ -115,58 +107,53 @@ def train_epochs(tr_loader,val_loader,model,criterion,optimizer, num_epochs, dev
         val_y_hat = np.array([])
         val_labels = np.array([])
 
-        #validation loop
-        for step, batch in enumerate(val_loader):
+        logger.info("start validation")
 
-            data, labels = batch
-            val_labels = np.append(val_labels,labels)
+        # validation loop
+        model.eval()
+        with torch.no_grad():
 
-            data = data.to(device,dtype=torch.float32)
-            labels = labels.to(device,dtype=torch.float32)
-            outputs = model(data)
-
-            if isinstance(data, list):
-              snr = data[1].to(device,dtype=torch.float32)
-              data = data[0]
+            for step, batch in enumerate(val_loader):
 
 
-            if snr is not None:
-              outputs = model(data,snr)
-            else:
-              outputs = model(data)
+                data = batch['output_array'].unsqueeze(1)
+                labels = batch['target_type']
+                val_labels = np.append(val_labels, labels)
 
-            labels = labels.view(-1,1)
-            outputs = outputs.view(-1,1)
+                data = data.to(device, dtype=torch.float32)
+                labels = labels.to(device, dtype=torch.float32)
+                outputs = model(data)
 
-            loss = criterion(outputs,labels)
+                labels = labels.view(-1, 1)
+                outputs = outputs.view(-1, 1)
 
-            val_loss += loss.item()
-            val_size += data.shape[0]
+                loss = criterion(outputs, labels)
 
-            if torch.cuda.is_available():
-                val_y_hat = np.append(val_y_hat,outputs.detach().cpu().numpy())
-            else:
-                val_y_hat = np.append(val_y_hat,outputs.detach().numpy())
+                val_loss += loss.item()
+                val_size += data.shape[0]
 
-        tr_fpr, tr_tpr, _ = roc_curve(tr_labels, tr_y_hat)
-        val_fpr, val_tpr, _ = roc_curve(val_labels, val_y_hat)
+                if torch.cuda.is_available():
+                    val_y_hat = np.append(val_y_hat, outputs.detach().cpu().numpy())
+                else:
+                    val_y_hat = np.append(val_y_hat, outputs.detach().numpy())
 
-        epoch_log = {'epoch': epoch+1,
-                     'loss': tr_loss / tr_size,
-                     'auc': auc(tr_fpr, tr_tpr),
-                     'acc': accuracy_calc(tr_y_hat,tr_labels),
-                     'val_loss': val_loss / val_size ,
-                     'val_auc': auc(val_fpr,val_tpr),
-                     'val_acc': accuracy_calc(val_y_hat,val_labels)}
+            tr_fpr, tr_tpr, _ = roc_curve(tr_labels, tr_y_hat)
+            val_fpr, val_tpr, _ = roc_curve(val_labels, val_y_hat)
 
+            epoch_log = {'epoch': epoch + 1,
+                         'loss': tr_loss / tr_size,
+                         'auc': auc(tr_fpr, tr_tpr),
+                         'acc': accuracy_calc(tr_y_hat, tr_labels),
+                         'val_loss': val_loss / val_size,
+                         'val_auc': auc(val_fpr, val_tpr),
+                         'val_acc': accuracy_calc(val_y_hat, val_labels)}
 
-        pretty_log(epoch_log)
+            pretty_log(epoch_log)
+            logger.info(epoch_log)
+            training_log.append(epoch_log)
 
-        training_log.append(epoch_log)
-
-        if WANDB_enable == True:
-            wandb.log(epoch_log)
-
+            if WANDB_enable:
+                wandb.log(epoch_log)
     return training_log   
 
 
