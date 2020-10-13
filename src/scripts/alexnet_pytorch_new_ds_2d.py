@@ -61,15 +61,15 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--num_tracks', type=int, default=3, help='num_tracks from auxilary')
 parser.add_argument('--val_ratio', type=str, default=6,
                     help='from good tracks, how many to take to validation set (1:X)')
-parser.add_argument('--shift_segment', type=int, default=6,
+parser.add_argument('--shift_segment', type=int, default=2,
                     help='shifts to use. can be single value, a range 1-31, or comma separated values')
 parser.add_argument('--get_shifts', type=bool, default=True, help='whether to add shifts')
 parser.add_argument('--get_horizontal_flip', type=bool, default=True, help='whether to add horizontal flips')
 parser.add_argument('--get_vertical_flip', type=bool, default=True, help='whether to add vertical flips')
-parser.add_argument('--batch_size', type=int, default=50, help='batch_size')
-parser.add_argument('--learn_rate', type=float, default=1e-4, help='learn_rate')
+parser.add_argument('--batch_size', type=int, default=150, help='batch_size')
+parser.add_argument('--learn_rate', type=float, default=1e-3, help='learn_rate')
 parser.add_argument('--wandb', type=bool, default=True, help='enable WANDB logging')
-parser.add_argument('--epochs', type=int, default=50, help='number of epochs to run')
+parser.add_argument('--epochs', type=int, default=20, help='number of epochs to run')
 parser.add_argument('--full_data_pickle', type=str, default=None,
                     help='pickle file with pre-compiled full_data dataframe')
 parser.add_argument('--pickle_save_fullpath', type=str, default=None,
@@ -79,7 +79,7 @@ parser.add_argument('--include_doppler', type=bool, default=True,
                     help='include the doppler in the iq matrix (for spectogram')
 parser.add_argument('--shuffle_stream', type=bool, default=True,
                     help='Shuffle the track streaming')
-parser.add_argument('--tracks_in_memory', type=int, default=20,
+parser.add_argument('--tracks_in_memory', type=int, default=50,
                     help='How many tracks to keep in memory before flushing')
 parser.add_argument('--include_test_data', type=bool, default=False,
                     help='Include the complete test dataset into the train/val.')
@@ -167,42 +167,11 @@ log = arch_setup.train_epochs(
     num_epochs=epochs, device=device,
     WANDB_enable=WANDB_enable, wandb=wandb)
 
-# %%
-
-# this ugly code can be replaced in the future if we can do (causing error now):
-#  > sample = train_dataset[0:2]
-
-# sample_num = min(6000, len(train_dataset)) 
-# sample_ids = np.random.choice(len(train_dataset), sample_num, replace=False)
-# sample_x = []
-# sample_y = []
-# for i in range(sample_num):
-#     sample_x.append(train_dataset[i]['output_array'])
-#     sample_y.append(train_dataset[i]['target_type'])   
-# sample_x = np.stack( sample_x, axis=0 )
-# sample_y = np.stack( sample_y, axis=0 )
-
-# val_x = []
-# val_y = []
-# for i in range(len(val_data)):
-#     val_x.append(val_data[i]['output_array'])
-#     val_y.append(val_data[i]['target_type'])
-# val_x = np.stack( val_x, axis=0 )
-
-# pred = [model(torch.from_numpy(sample_x).to(device, dtype=torch.float)).detach().cpu().numpy(),
-#         model(torch.from_numpy(val_x).to(device, dtype=torch.float)).detach().cpu().numpy()]
-# actual = [sample_y, val_y]
-# plt1 = metrics.stats(pred, actual)
-# if WANDB_enable:
-#     wandb.log({"roc_chart": plt1})
-
-
-# #%%
-
 # # SUBMIT
 
 test_path = 'MAFAT RADAR Challenge - FULL Public Test Set V1'
 test_df = pd.DataFrame.from_dict(get_data.load_data(test_path, PATH_DATA), orient='index').transpose()
+test_df.replace({'animal': 0, 'human': 1}, inplace=True)
 test_df['output_array'] = test_df['iq_sweep_burst'].progress_apply(iq_to_spectogram)
 if config.get('include_doppler'):
     test_df['output_array'] = test_df.progress_apply(lambda row: specto_feat.max_value_on_doppler(row['output_array'], row['doppler_burst']), axis=1)
