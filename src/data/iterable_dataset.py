@@ -326,11 +326,11 @@ class DataDict(object):
             df_tracks['output_array'] = df_tracks['output_array'].progress_apply(iq_to_scalogram,
                                                                                  transformation=self.config[
                                                                                      'mother_wavelet'],
-                                                                                 scale=self.config['wavelet_scale'])
+                                                                                 scale=self.config['scale'])
             val_tracks['output_array'] = val_tracks['output_array'].progress_apply(iq_to_scalogram,
                                                                                    transformation=self.config[
                                                                                        'mother_wavelet'],
-                                                                                   scale=self.config['wavelet_scale'])
+                                                                                   scale=self.config['scale'])
         else:
             print('Converting IQ matricies to Spectrogram')
             df_tracks['output_array'] = df_tracks['output_array'].progress_apply(iq_to_spectogram)
