@@ -25,11 +25,11 @@ for creds_path in creds_path_ar:
 # %%
 # adding cwd to path to avoid "No module named src.*" errors
 sys.path.insert(0, os.path.join(PATH_ROOT))
-from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiStreamDataLoader
+from src.data.iterable_dataset import Config, DataDict, StreamingDataset
 
-config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=True, output_data_type='scalogram',
+config = Config(file_path=PATH_DATA, num_tracks=3, valratio=6, get_shifts=True, output_data_type='spectrogram',
                 get_horizontal_flip=True, get_vertical_flip=True, mother_wavelet='cgau1', wavelet_scale=3,
-                batch_size=50, tracks_in_memory=25, include_doppler=True, shift_segment=8, shuffle_stream=True)
+                batch_size=50, tracks_in_memory=25, include_doppler=True, shift_segment=2, shuffle_stream=True)
 
 dataset = DataDict(config=config)
 track_count = len(dataset.train_data) + len(dataset.val_data)
