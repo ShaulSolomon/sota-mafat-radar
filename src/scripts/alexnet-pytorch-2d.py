@@ -4,10 +4,9 @@ script to run
 """
 # %%
 import configparser
-from os import path
 import os
 import sys
-
+from os import path
 
 PATH_ROOT = ""
 PATH_DATA = ""
@@ -29,29 +28,19 @@ sys.path.insert(0, os.path.join(PATH_ROOT))
 # %%
 import argparse
 import random
-import pickle
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
-import subprocess
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 import torch.optim as optim
-
-from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
-from matplotlib.colors import LinearSegmentedColormap
-from termcolor import colored
-
-from src.data import feat_data, get_data, get_data_pipeline
-from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiStreamDataLoader, iq_to_spectogram, \
+from sklearn.metrics import roc_curve, auc
+from src.data import get_data
+from src.data.iterable_dataset import Config, DataDict, StreamingDataset, iq_to_spectogram, \
     normalize
-from src.models import arch_setup, alex_model, dataset_ram_reduced
-from src.features import specto_feat, add_data
-from src.visualization import metrics
-from src.utils import helpers
+from src.models import arch_setup, alex_model
+from src.features import specto_feat
 
 import logging
 
@@ -99,8 +88,6 @@ config = Config(file_path=PATH_DATA, **vars(args))
 
 print(config)
 
-# %%
-
 # if you want to run WANDB. run './src/scripts/wandb_login.sh' in shell (need to run only once per session/host)
 
 if WANDB_enable == True:
@@ -110,8 +97,7 @@ if WANDB_enable == True:
     notes = input("Enter run notes :")
     os.environ['WANDB_NOTEBOOK_NAME'] = os.path.splitext(os.path.basename(__file__))[0]
 
-# %%
-log_filename = "alexnet_pytorch.log"
+log_filename = "alexnet_pytorch_2D.log"
 if os.path.exists(log_filename):
     os.remove(log_filename)
 
@@ -137,8 +123,6 @@ if torch.cuda.is_available():
 else:
     device = torch.device('cpu:0')
 
-# %%
-
 dataset = DataDict(config=config)
 track_count = len(dataset.train_data) + len(dataset.val_data)
 segment_count = dataset.data_df.shape[0]
@@ -147,8 +131,6 @@ train_dataset = StreamingDataset(dataset.train_data, config, shuffle=True)
 train_loader = DataLoader(train_dataset, batch_size=config['batch_size'])
 val_data = StreamingDataset(dataset.val_data, config, is_val=True, shuffle=True)
 val_loader = DataLoader(val_data, batch_size=config['batch_size'])
-
-# %%
 
 model = alex_model.alex_mdf_model()
 # model.apply(init_weights)
@@ -164,15 +146,12 @@ else:
     os.environ['WANDB_NOTEBOOK_NAME'] = os.path.splitext(os.path.basename(__file__))[0]
     wandb.watch(model)
 
-# %%
-
 log = arch_setup.train_epochs(
     train_loader, val_loader, model, criterion, optimizer,
     num_epochs=epochs, device=device,
     WANDB_enable=WANDB_enable, wandb=wandb)
 
 # # SUBMIT
-
 test_path = 'MAFAT RADAR Challenge - FULL Public Test Set V1'
 test_df = pd.DataFrame.from_dict(get_data.load_data(test_path, PATH_DATA), orient='index').transpose()
 test_df.replace({'animal': 0, 'human': 1}, inplace=True)
