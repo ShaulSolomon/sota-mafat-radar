@@ -175,7 +175,8 @@ submission['label'] = test_df['target_type']
 
 # Save submission
 submission.to_csv('3D-submission.csv', index=False)
-
+if WANDB_enable:
+    wandb.save('3D-submission.csv')
 # print performance stats
 roc = roc_curve(submission['label'], submission['prediction'])
 tr_fpr, tr_tpr, _ = roc_curve(submission['label'], submission['prediction'])
