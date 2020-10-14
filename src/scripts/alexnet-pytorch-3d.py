@@ -54,7 +54,7 @@ parser.add_argument('--get_horizontal_flip', type=bool, default=True, help='whet
 parser.add_argument('--get_vertical_flip', type=bool, default=True, help='whether to add vertical flips')
 parser.add_argument('--batch_size', type=int, default=100, help='batch_size')
 parser.add_argument('--learn_rate', type=float, default=1e-3, help='learn_rate')
-parser.add_argument('--wandb', type=bool, default=False, help='enable WANDB logging')
+parser.add_argument('--wandb', type=bool, default=True, help='enable WANDB logging')
 parser.add_argument('--epochs', type=int, default=20, help='number of epochs to run')
 parser.add_argument('--full_data_pickle', type=str, default=None,
                     help='pickle file with pre-compiled full_data dataframe')
