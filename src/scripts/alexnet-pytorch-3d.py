@@ -175,16 +175,14 @@ submission['prediction'] = model(test_x.to(device)).detach().cpu().numpy()
 submission['label'] = test_df['target_type']
 
 # Save submission
-submission.to_csv('3D-submission.csv', index=False)
+submission.to_csv(f'{runname}-submission.csv', index=False)
 roc = roc_curve(submission['label'], submission['prediction'])
 tr_fpr, tr_tpr, _ = roc_curve(submission['label'], submission['prediction'])
 auc_score = auc(tr_fpr, tr_tpr)
 public_acc = arch_setup.accuracy_calc(submission["prediction"], submission["label"])
 print(f'Full Public Test Set AUC: {auc_score}, Accuracy score: {public_acc}')
 if WANDB_enable:
-    wandb.save('3D-submission.csv')
+    wandb.save(f'{runname}-submission.csv')
     wandb.log({'public-auc': auc_score, 'public-accuracy': public_acc})
 # print performance stats
 
-
-# %%
