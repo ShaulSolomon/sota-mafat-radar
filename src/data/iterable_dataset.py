@@ -455,7 +455,7 @@ class StreamingDataset(IterableDataset):
     def __len__(self):
         return self.segment_count
 
-    def segments_generator(self, segment_list: _Segment) -> Union[List[_Segment], None]:
+    def segments_generator(self, segment_list: _Segment) -> None:
         """
         Generates new and/or augmented segments according to configuration parameters.
         Returns a dictionary containing the merged set of segments indexed by
@@ -493,13 +493,19 @@ class StreamingDataset(IterableDataset):
         random.shuffle(self.segment_blocks)
         # else:
         #     return segment_list
-
+    # TODO create paralellizable streaming function
     def process_tracks_shuffle(self):
         for i, track in enumerate(self.data):
             self.segments_generator(track)
             if i % self.config.get('tracks_in_memory', 100) == self.config.get('tracks_in_memory', 100):
-                yield self.segment_blocks
-        yield self.segment_blocks
+                segment_blocks = self.segment_blocks
+                self.segment_blocks = []
+                random.shuffle(segment_blocks)
+                yield segment_blocks
+        segment_blocks = self.segment_blocks
+        self.segment_blocks = []
+        random.shuffle(segment_blocks)
+        yield segment_blocks
 
     def shuffle_stream(self):
         return chain(self.process_tracks_shuffle())
