@@ -145,6 +145,7 @@ else:
     wandb.init(project="sota-mafat-base", name=runname, notes=notes, config=config)
     os.environ['WANDB_NOTEBOOK_NAME'] = os.path.splitext(os.path.basename(__file__))[0]
     wandb.watch(model)
+    wandb.save("*.pth")
 
 log = arch_setup.train_epochs(
     train_loader, val_loader, model, criterion, optimizer,

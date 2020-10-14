@@ -148,6 +148,7 @@ else:
     wandb.init(project="sota-mafat-3d", name=runname, notes=notes, config=config)
     os.environ['WANDB_NOTEBOOK_NAME'] = os.path.splitext(os.path.basename(__file__))[0]
     wandb.watch(model)
+    wandb.save("*.pth")
 
 # %%
 
