@@ -185,3 +185,5 @@ if WANDB_enable:
     wandb.log({'public-auc': auc_score, 'public-accuracy': public_acc})
 # print performance stats
 
+
+# %%
