@@ -37,7 +37,7 @@ import torch.optim as optim
 from sklearn.metrics import roc_curve, auc
 from src.data import get_data
 from src.data.iterable_dataset import Config, DataDict, StreamingDataset, iq_to_spectogram, normalize
-from src.models import arch_setup, alex_model
+from src.models import arch_setup, base_3d
 from src.features import specto_feat
 import logging
 
@@ -135,7 +135,7 @@ val_loader = DataLoader(val_data, batch_size=config['batch_size'])
 
 # %%
 
-model = alex_model.alex_mdf_model()
+model = base_3d.alex_3d()
 # model.apply(init_weights)
 criterion = nn.BCELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
