@@ -1,5 +1,6 @@
 # import sys
 # sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
+import math
 
 import numpy as np
 import os
@@ -13,30 +14,6 @@ from boto.s3.key import Key
 from boto import s3
 import boto3
 from boto import boto
-
-# import matplotlib.pyplot as plt
-# from sklearn.metrics import confusion_matrix
-# import itertools
-# from matplotlib.colors import LinearSegmentedColormap
-# import configparser
-# import matplotlib.patches as patches
-# import math
-# from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
-# from sklearn.manifold import TSNE
-
-# ### fetch the credentials ###
-# creds_path = "credentials.ini"
-# config_parser = configparser.ConfigParser()
-# config_parser.read(creds_path)
-
-# PATH_ROOT = config_parser['MAIN']["PATH_ROOT"]
-# PATH_DATA = config_parser['MAIN']["PATH_DATA"]
-# #####
-
-# The function append_dict is for concatenating the training set
-# with the Auxiliary data set segments
-
-# import ipdb -> add ipdb.set_trace() where you need the breakpoint
 
 spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
                              [2.444e-01, 1.534e-01, 6.728e-01],
@@ -296,9 +273,6 @@ spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
                              [9.769e-01, 9.839e-01, 8.050e-02]])
 
 
-# np.save('./data/cmap.npy', spectrogram_cmap)
-
-
 def load_data(file_path, folder=None):
     """
   Reads all data files (metadata and signal matrix data) as python dictionary,
@@ -332,6 +306,14 @@ def load_pkl_data(file_path, folder=None):
   Returns:
     Python dictionary
   """
+
+    if "s3://" in folder:
+      BUCKET='sota-mafat'
+      s3 = boto3.resource('s3')
+      print(f"getting pkl s3:{file_path}")
+      output = pickle.loads(s3.Bucket("sota-mafat").Object(f"{file_path}.pkl").get()['Body'].read())
+      return output
+    
     if folder is not None:
         path = os.path.join(folder, file_path + '.pkl')
     else:
@@ -351,6 +333,15 @@ def load_csv_metadata(file_path, folder=None):
   Returns:
     Pandas DataFarme
   """
+
+    if "s3://" in folder:
+      BUCKET='sota-mafat'
+      s3 = boto3.client('s3')
+      print(f"getting csv s3:{file_path}")
+      obj = s3.get_object(Bucket=BUCKET, Key=f"{file_path}.csv")
+      output = pd.read_csv(obj['Body'])
+      return output
+
     if folder is not None:
         path = os.path.join(folder, file_path + '.csv')
     else:
@@ -366,54 +357,53 @@ def append_dict(dict1, dict2):
     return dict1
 
 def classic_trainval(PATH_DATA, df_type = 'spectrogram'):
-  """
-  Reads csv as pandas DataFrame (only Metadata).
+    """
+    Reads csv as pandas DataFrame (only Metadata).
 
-  Arguments:
-    PATH_DATA -- {str} -- path to dataset
-    df type -- {bool} -- train data type, either spectrogram (iq_matrix) or scalogram (3d wavelets)
-
-
-  """
-  # Set and test path to competition data files
-  try:
-      if PATH_DATA == 'INSERT HERE':
-          print('Please enter path to competition data files:')
-          PATH_DATA = input()
-
-      file_path = 'MAFAT RADAR Challenge - Training Set V1.csv'
-      with open(f'{PATH_DATA}{file_path}') as f:
-        f.readlines()
-      print(colored('Everything is setup correctly', color='green'))
-  except:
-      print(colored('Please mount drive and set competition_path correctly',
-                      color='red'))
-
-  # Loading and preparing the data
-  # Loading Auxiliary Experiment set - can take a few minutes
-  experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
-  experiment_auxiliary_df = load_data(experiment_auxiliary, PATH_DATA)
-
-  train_aux = aux_split(experiment_auxiliary_df)
-
-  # Training set
-  train_path = 'MAFAT RADAR Challenge - Training Set V1'
-  training_df = load_data(train_path, PATH_DATA)
-
-  # Adding segments from the experiment auxiliary set to the training set
-  train_df = append_dict(training_df, train_aux)
+    Arguments:
+        PATH_DATA -- {str} -- path to dataset
+        df type -- {bool} -- train data type, either spectrogram (iq_matrix) or scalogram (3d wavelets)
 
 
-  # Preprocessing and split the data to training and validation
-  train_df = specto_feat.data_preprocess(train_df.copy(),df_type = df_type)
-  train_x, train_y, val_x, val_y, _ = split_train_val(train_df)
+    """
+    # Set and test path to competition data files
+    try:
+        if PATH_DATA == 'INSERT HERE':
+            print('Please enter path to competition data files:')
+            PATH_DATA = input()
 
-  val_y = val_y.astype(int)
-  train_y = train_y.astype(int)
-  train_x = train_x.reshape(list(train_x.shape) + [1])
-  val_x = val_x.reshape(list(val_x.shape) + [1])
+        file_path = 'MAFAT RADAR Challenge - Training Set V1.csv'
+        with open(f'{PATH_DATA}{file_path}') as f:
+            f.readlines()
+        print(colored('Everything is setup correctly', color='green'))
+    except:
+        print(colored('Please mount drive and set competition_path correctly', color='red'))
 
-  return train_x, train_y, val_x, val_y
+    # Loading and preparing the data
+    # Loading Auxiliary Experiment set - can take a few minutes
+    experiment_auxiliary = 'MAFAT RADAR Challenge - Auxiliary Experiment Set V2'
+    experiment_auxiliary_df = load_data(experiment_auxiliary, PATH_DATA)
+
+    train_aux = aux_split(experiment_auxiliary_df)
+
+    # Training set
+    train_path = 'MAFAT RADAR Challenge - Training Set V1'
+    training_df = load_data(train_path, PATH_DATA)
+
+    # Adding segments from the experiment auxiliary set to the training set
+    train_df = append_dict(training_df, train_aux)
+
+
+    # Preprocessing and split the data to training and validation
+    train_df = specto_feat.data_preprocess(train_df.copy(), df_type=df_type)
+    train_x, train_y, val_x, val_y, _ = split_train_val(train_df)
+
+    val_y = val_y.astype(int)
+    train_y = train_y.astype(int)
+    train_x = train_x.reshape(list(train_x.shape) + [1])
+    val_x = val_x.reshape(list(val_x.shape) + [1])
+
+    return train_x, train_y, val_x, val_y
 
 
 def splitArrayBy(idx, pattern):

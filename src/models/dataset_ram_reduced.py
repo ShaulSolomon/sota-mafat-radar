@@ -41,54 +41,55 @@ class DS(Dataset):
 
             for augment_info in data_inner.augmentation_info:
 
-                #print(f"augment_info:{augment_info}")
+                # print(f"augment_info:{augment_info}")
 
-                if augment_info['type']=='shift':
+                if augment_info['type'] == 'shift':
 
-                    #print(f"shift")
+                    # print(f"shift")
 
                     iq_list = []
-                    dopller_list = []
+                    doppler_list = []
                     from_segments = augment_info['from_segments']
                     shift_by = augment_info['shift']
 
                     for i in from_segments:
                         iq_list.append(self.df.loc[i]['iq_sweep_burst'])     # use loc here because we need the actual segment id (by index)
-                        dopller_list.append(self.df.loc[i]['doppler_burst'])
+                        doppler_list.append(self.df.loc[i]['doppler_burst'])
 
-                    #print(f"iq_list:{iq_list},dopller_list:{dopller_list}. shape:{iq_list[0].shape}. len:{len(iq_list)}")
+                    # print(f"iq_list:{iq_list},dopller_list:{dopller_list}. shape:{iq_list[0].shape}. len:{len(iq_list)}")
 
                     iq_matrix = np.concatenate(iq_list, axis=1)  # 2*(128,32) => (128,64)
-                    doppler_vector = np.concatenate(dopller_list, axis=0)  # 2*(32,1) => (64,1)
+                    doppler_vector = np.concatenate(doppler_list, axis=0)  # 2*(32,1) => (64,1)
 
                     # cut the iq_matrix according to the shift
                     iq_matrix = iq_matrix[:,shift_by:shift_by+32]
                     doppler_vector = doppler_vector[shift_by:shift_by+32]
 
-                if iq_matrix is None and augment_info['type']=='flip':
+                if iq_matrix is None and augment_info['type'] == 'flip':
 
-                    #print(f"flip")
+                    # print(f"flip")
 
                     from_segment = augment_info['from_segment']
 
                     iq_matrix = self.df[from_segment].iq_sweep_burst
                     doppler_vector = self.df[from_segment].doppler_vector
 
-                #print(f"iq_matrix:{iq_matrix},doppler_vector:{doppler_vector}")
+                # print(f"iq_matrix:{iq_matrix},doppler_vector:{doppler_vector}")
 
             data_inner.iq_sweep_burst = iq_matrix
             data_inner.doppler_burst = doppler_vector
 
 
-        #print(f"data_inner:{data_inner}")
+        # print(f"data_inner:{data_inner}")
 
         # convert to structure supported by preprocess method
         data_inner_o = {k:[v] for (k,v) in data_inner.to_dict().items()}
         data_inner_o['target_type'] = np.asarray(data_inner_o['target_type'])
 
-        #print(f"data_inner3:{data_inner_o}")
+        # print(f"data_inner3:{data_inner_o}")
 
         # do preprocess
+
         #print(f"data:{data}")
 
         # augementations
@@ -119,8 +120,8 @@ class DS(Dataset):
             data2model = np.array(data['scalogram'])
         #print(f"type0:{data['target_type']}")
 
-        #print(f"data2model:{data2model.shape}")  # (1,132,28)
-        #data2model = data2model.reshape(list(data2model.shape)+[1])
-        data2model = np.expand_dims(data2model.squeeze(),axis=2)  # (132,28,1)
+        # print(f"data2model:{data2model.shape}")  # (1,132,28)
+        # data2model = data2model.reshape(list(data2model.shape)+[1])
+        data2model = np.expand_dims(data2model.squeeze(), axis=2)  # (132,28,1)
 
         return torch.from_numpy(data2model.copy()), torch.tensor(label2model.astype(np.int))

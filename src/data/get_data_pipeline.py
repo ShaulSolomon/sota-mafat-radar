@@ -312,6 +312,7 @@ def pipeline_trainval_ram_reduced(PATH_DATA, config = {}):
   val_y = val_processed['target_type'].astype(int)
   '''
 
+
   return full_data
 
 
