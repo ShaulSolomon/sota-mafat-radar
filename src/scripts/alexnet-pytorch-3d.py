@@ -4,10 +4,9 @@ script to run
 """
 # %%
 import configparser
-from os import path
 import os
 import sys
-
+from os import path
 
 PATH_ROOT = ""
 PATH_DATA = ""
@@ -29,30 +28,17 @@ sys.path.insert(0, os.path.join(PATH_ROOT))
 # %%
 import argparse
 import random
-import pickle
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
-import subprocess
-
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 import torch.optim as optim
-
-from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
-from matplotlib.colors import LinearSegmentedColormap
-from termcolor import colored
-
-from src.data import feat_data, get_data, get_data_pipeline
-from src.data.iterable_dataset import Config, DataDict, StreamingDataset, MultiStreamDataLoader, iq_to_spectogram, \
-    normalize
-from src.models import arch_setup, alex_model, dataset_ram_reduced
-from src.features import specto_feat, add_data
-from src.visualization import metrics
-from src.utils import helpers
-
+from sklearn.metrics import roc_curve, auc
+from src.data import get_data
+from src.data.iterable_dataset import Config, DataDict, StreamingDataset, iq_to_spectogram, normalize
+from src.models import arch_setup, alex_model
+from src.features import specto_feat
 import logging
 
 # %%
@@ -81,6 +67,10 @@ parser.add_argument('--shuffle_stream', type=bool, default=True,
                     help='Shuffle the track streaming')
 parser.add_argument('--tracks_in_memory', type=int, default=20,
                     help='How many tracks to keep in memory before flushing')
+parser.add_argument('--mother_wavelet', type=str, default="cgau1",
+                    help='Mother wavelet transformation to use when creating scalograms')
+parser.add_argument('--scale', type=int, default=8,
+                    help='Number of scales for creating scalograms')
 
 args = parser.parse_args()
 
@@ -99,18 +89,19 @@ print(config)
 
 if WANDB_enable == True:
     import wandb
+
     wandb.login()
     runname = input("Enter WANDB runname:")
     notes = input("Enter run notes :")
     os.environ['WANDB_NOTEBOOK_NAME'] = os.path.splitext(os.path.basename(__file__))[0]
 
 # %%
-log_filename = "alexnet_pytorch.log"
+log_filename = "alexnet_pytorch_3D.log"
 if os.path.exists(log_filename):
     os.remove(log_filename)
 
 logging.basicConfig(level=logging.INFO,
-                    filename='alexnet_pytorch.log',
+                    filename='alexnet_pytorch_3D.log',
                     format="%(asctime)s [%(levelname)s]|%(module)s:%(message)s", )
 logging.info("start")
 logger = logging.getLogger()
@@ -165,45 +156,14 @@ log = arch_setup.train_epochs(
     num_epochs=epochs, device=device,
     WANDB_enable=WANDB_enable, wandb=wandb)
 
-# %%
-
-# this ugly code can be replaced in the future if we can do (causing error now):
-#  > sample = train_dataset[0:2]
-
-# sample_num = min(6000, len(train_dataset)) 
-# sample_ids = np.random.choice(len(train_dataset), sample_num, replace=False)
-# sample_x = []
-# sample_y = []
-# for i in range(sample_num):
-#     sample_x.append(train_dataset[i]['output_array'])
-#     sample_y.append(train_dataset[i]['target_type'])   
-# sample_x = np.stack( sample_x, axis=0 )
-# sample_y = np.stack( sample_y, axis=0 )
-
-# val_x = []
-# val_y = []
-# for i in range(len(val_data)):
-#     val_x.append(val_data[i]['output_array'])
-#     val_y.append(val_data[i]['target_type'])
-# val_x = np.stack( val_x, axis=0 )
-
-# pred = [model(torch.from_numpy(sample_x).to(device, dtype=torch.float)).detach().cpu().numpy(),
-#         model(torch.from_numpy(val_x).to(device, dtype=torch.float)).detach().cpu().numpy()]
-# actual = [sample_y, val_y]
-# plt1 = metrics.stats(pred, actual)
-# if WANDB_enable:
-#     wandb.log({"roc_chart": plt1})
-
-
-# #%%
-
 # # SUBMIT
 
 test_path = 'MAFAT RADAR Challenge - FULL Public Test Set V1'
 test_df = pd.DataFrame.from_dict(get_data.load_data(test_path, PATH_DATA), orient='index').transpose()
 test_df['output_array'] = test_df['iq_sweep_burst'].progress_apply(iq_to_spectogram)
 if config.get('include_doppler'):
-    test_df['output_array'] = test_df.progress_apply(lambda row: specto_feat.max_value_on_doppler(row['output_array'], row['doppler_burst']), axis=1)
+    test_df['output_array'] = test_df.progress_apply(
+        lambda row: specto_feat.max_value_on_doppler(row['output_array'], row['doppler_burst']), axis=1)
 test_df['output_array'] = test_df['output_array'].progress_apply(normalize)
 test_x = torch.from_numpy(np.stack(test_df['output_array'].tolist(), axis=0).astype(np.float32)).unsqueeze(1)
 
@@ -214,10 +174,11 @@ submission['prediction'] = model(test_x.to(device)).detach().cpu().numpy()
 submission['label'] = test_df['target_type']
 
 # Save submission
-submission.to_csv('submission.csv', index=False)
+submission.to_csv('3D-submission.csv', index=False)
 
-#print performance stats
+# print performance stats
 roc = roc_curve(submission['label'], submission['prediction'])
 tr_fpr, tr_tpr, _ = roc_curve(submission['label'], submission['prediction'])
 auc_score = auc(tr_fpr, tr_tpr)
-print(f'AUC Score: {auc_score}, Accuracy score: {arch_setup.accuracy_calc(submission["prediction"], submission["label"])}')
+print(
+    f'AUC Score: {auc_score}, Accuracy score: {arch_setup.accuracy_calc(submission["prediction"], submission["label"])}')
