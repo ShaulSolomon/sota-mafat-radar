@@ -145,7 +145,7 @@ model.to(device)
 if WANDB_enable == False:
     wandb = None
 else:
-    wandb.init(project="sota-mafat-base", name=runname, notes=notes, config=config)
+    wandb.init(project="sota-mafat-3d", name=runname, notes=notes, config=config)
     os.environ['WANDB_NOTEBOOK_NAME'] = os.path.splitext(os.path.basename(__file__))[0]
     wandb.watch(model)
 
@@ -175,11 +175,13 @@ submission['label'] = test_df['target_type']
 
 # Save submission
 submission.to_csv('3D-submission.csv', index=False)
-if WANDB_enable:
-    wandb.save('3D-submission.csv')
-# print performance stats
 roc = roc_curve(submission['label'], submission['prediction'])
 tr_fpr, tr_tpr, _ = roc_curve(submission['label'], submission['prediction'])
 auc_score = auc(tr_fpr, tr_tpr)
-print(
-    f'AUC Score: {auc_score}, Accuracy score: {arch_setup.accuracy_calc(submission["prediction"], submission["label"])}')
+public_acc = arch_setup.accuracy_calc(submission["prediction"], submission["label"])
+print(f'Full Public Test Set AUC: {auc_score}, Accuracy score: {public_acc}')
+if WANDB_enable:
+    wandb.save('3D-submission.csv')
+    wandb.log({'public-auc': auc_score, 'public-accuracy': public_acc})
+# print performance stats
+
