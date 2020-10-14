@@ -135,7 +135,7 @@ val_loader = DataLoader(val_data, batch_size=config['batch_size'])
 model = alex_model.alex_mdf_model()
 # model.apply(init_weights)
 criterion = nn.BCELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0001)
+optimizer = optim.Adam(model.parameters(), lr=lr)
 
 model.to(device)
 
