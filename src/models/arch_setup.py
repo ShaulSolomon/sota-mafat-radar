@@ -155,6 +155,8 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
 
             if WANDB_enable:
                 wandb.log(epoch_log)
+                torch.save(model, "./data/models/model.pth")
+                wandb.save("./data/models/model.pth")
     return training_log   
 
 
