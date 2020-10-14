@@ -68,7 +68,6 @@ class TemporalConvNet(nn.Module):
         self.decoder = nn.Linear(126*32, 1)
 
     def forward(self, x):
-        x = x.permute(0,3,1,2)
         x = self.network(x)
         x = self.dropout(self.singlechannel(x)).flatten(start_dim=1)
         return F.sigmoid(self.decoder(x))
