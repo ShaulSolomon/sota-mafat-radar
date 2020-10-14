@@ -158,7 +158,7 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
                 torch.save(model, "./data/models/model.pth")
                 wandb.save("./data/models/model.pth")
 
-    return training_log   
+    return training_log
 
 
 def plot_loss_train_test(logs,model):
