@@ -152,7 +152,7 @@ log = arch_setup.train_epochs(
     num_epochs=epochs, device=device,
     WANDB_enable=WANDB_enable, wandb=wandb)
 
-# # SUBMIT
+# # Evaluate
 test_path = 'MAFAT RADAR Challenge - FULL Public Test Set V1'
 test_df = pd.DataFrame.from_dict(get_data.load_data(test_path, PATH_DATA), orient='index').transpose()
 test_df.replace({'animal': 0, 'human': 1}, inplace=True)
@@ -178,3 +178,22 @@ roc = roc_curve(submission['label'], submission['prediction'])
 tr_fpr, tr_tpr, _ = roc_curve(submission['label'], submission['prediction'])
 auc_score = auc(tr_fpr, tr_tpr)
 print(f'AUC Score: {auc_score}, Accuracy score: {arch_setup.accuracy_calc(submission["prediction"], submission["label"])}')
+
+# # SUBMIT
+test_path = 'MAFAT RADAR Challenge - Private Test Set V1'
+test_df = pd.DataFrame.from_dict(get_data.load_data(test_path, PATH_DATA), orient='index').transpose()
+test_df['output_array'] = test_df['iq_sweep_burst'].progress_apply(iq_to_spectogram)
+if config.get('include_doppler'):
+    test_df['output_array'] = test_df.progress_apply(lambda row: specto_feat.max_value_on_doppler(row['output_array'], row['doppler_burst']), axis=1)
+test_df['output_array'] = test_df['output_array'].progress_apply(normalize)
+test_x = torch.from_numpy(np.stack(test_df['output_array'].tolist(), axis=0).astype(np.float32)).unsqueeze(1)
+
+# Creating DataFrame with the probability prediction for each segment
+submission = pd.DataFrame()
+submission['segment_id'] = test_df['segment_id']
+submission['prediction'] = model(test_x.to(device)).detach().cpu().numpy()
+
+# Save submission
+submission.to_csv(f'{runname}-submission.csv', index=False)
+if WANDB_enable:
+    wandb.save(f'{runname}-submission.csv')
