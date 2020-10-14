@@ -47,25 +47,25 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--num_tracks', type=int, default=3, help='num_tracks from auxilary')
 parser.add_argument('--val_ratio', type=str, default=6,
                     help='from good tracks, how many to take to validation set (1:X)')
-parser.add_argument('--shift_segment', type=int, default=16,
+parser.add_argument('--shift_segment', type=int, default=2,
                     help='shifts to use. can be single value, a range 1-31, or comma separated values')
 parser.add_argument('--get_shifts', type=bool, default=True, help='whether to add shifts')
-parser.add_argument('--get_horizontal_flip', type=bool, default=False, help='whether to add horizontal flips')
-parser.add_argument('--get_vertical_flip', type=bool, default=False, help='whether to add vertical flips')
-parser.add_argument('--batch_size', type=int, default=200, help='batch_size')
-parser.add_argument('--learn_rate', type=float, default=1e-4, help='learn_rate')
+parser.add_argument('--get_horizontal_flip', type=bool, default=True, help='whether to add horizontal flips')
+parser.add_argument('--get_vertical_flip', type=bool, default=True, help='whether to add vertical flips')
+parser.add_argument('--batch_size', type=int, default=100, help='batch_size')
+parser.add_argument('--learn_rate', type=float, default=1e-3, help='learn_rate')
 parser.add_argument('--wandb', type=bool, default=False, help='enable WANDB logging')
-parser.add_argument('--epochs', type=int, default=1, help='number of epochs to run')
+parser.add_argument('--epochs', type=int, default=20, help='number of epochs to run')
 parser.add_argument('--full_data_pickle', type=str, default=None,
                     help='pickle file with pre-compiled full_data dataframe')
 parser.add_argument('--pickle_save_fullpath', type=str, default=None,
                     help='if provided, save the full_data dataframe to a different location (should be absolute path)')
-parser.add_argument('--output_data_type', type=str, default="spectrogram", help='scalogram/spectrogram')
+parser.add_argument('--output_data_type', type=str, default="scalogram", help='scalogram/spectrogram')
 parser.add_argument('--include_doppler', type=bool, default=True,
                     help='include the doppler in the iq matrix (for spectogram')
 parser.add_argument('--shuffle_stream', type=bool, default=True,
                     help='Shuffle the track streaming')
-parser.add_argument('--tracks_in_memory', type=int, default=20,
+parser.add_argument('--tracks_in_memory', type=int, default=50,
                     help='How many tracks to keep in memory before flushing')
 parser.add_argument('--mother_wavelet', type=str, default="cgau1",
                     help='Mother wavelet transformation to use when creating scalograms')
