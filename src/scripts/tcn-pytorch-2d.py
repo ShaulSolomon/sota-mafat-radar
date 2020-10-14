@@ -47,7 +47,7 @@ import logging
 # %%
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--num_tracks', type=int, default=3, help='num_tracks from auxilary')
+parser.add_argument('--num_tracks', type=int, default=4, help='num_tracks from auxilary')
 parser.add_argument('--val_ratio', type=str, default=6,
                     help='from good tracks, how many to take to validation set (1:X)')
 parser.add_argument('--shift_segment', type=int, default=2,
@@ -55,7 +55,7 @@ parser.add_argument('--shift_segment', type=int, default=2,
 parser.add_argument('--get_shifts', type=bool, default=True, help='whether to add shifts')
 parser.add_argument('--get_horizontal_flip', type=bool, default=True, help='whether to add horizontal flips')
 parser.add_argument('--get_vertical_flip', type=bool, default=False, help='whether to add vertical flips')
-parser.add_argument('--batch_size', type=int, default=150, help='batch_size')
+parser.add_argument('--batch_size', type=int, default=128, help='batch_size')
 parser.add_argument('--learn_rate', type=float, default=1e-3, help='learn_rate')
 parser.add_argument('--wandb', type=bool, default=True, help='enable WANDB logging')
 parser.add_argument('--epochs', type=int, default=10, help='number of epochs to run')
@@ -68,7 +68,7 @@ parser.add_argument('--include_doppler', type=bool, default=True,
                     help='include the doppler in the iq matrix (for spectogram')
 parser.add_argument('--shuffle_stream', type=bool, default=True,
                     help='Shuffle the track streaming')
-parser.add_argument('--tracks_in_memory', type=int, default=50,
+parser.add_argument('--tracks_in_memory', type=int, default=100,
                     help='How many tracks to keep in memory before flushing')
 parser.add_argument('--include_test_data', type=bool, default=False,
                     help='Include the complete test dataset into the train/val.')
@@ -80,7 +80,7 @@ parser.add_argument('--num_channels', type=list, default=[16,32,32,64],
                     help='Number of Channels for TCN Blocks')
 parser.add_argument('--kernel_size', type=int, default=5,
                     help='Kernel size')
-parser.add_argument('--dropout', type=float, default=0.4,
+parser.add_argument('--dropout', type=float, default=0.3,
                     help='Dropout rate')
                     
 
@@ -143,7 +143,7 @@ val_loader = DataLoader(val_data, batch_size=config['batch_size'])
 model = tcn_model3.TemporalConvNet(num_inputs = 1, num_channels = args.num_channels, kernel_size=args.kernel_size, dropout=args.dropout)
 # model.apply(init_weights)
 criterion = nn.BCELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.0001)
+optimizer = optim.Adam(model.parameters(), lr=args.learn_rate)
 
 model.to(device)
 
