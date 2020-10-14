@@ -500,6 +500,7 @@ class StreamingDataset(IterableDataset):
         random.shuffle(self.segment_blocks)
         # else:
         #     return segment_list
+
     # TODO create paralellizable streaming function
     def process_tracks_shuffle(self):
         for i, track in enumerate(self.data):
