@@ -54,11 +54,11 @@ parser.add_argument('--shift_segment', type=int, default=2,
                     help='shifts to use. can be single value, a range 1-31, or comma separated values')
 parser.add_argument('--get_shifts', type=bool, default=True, help='whether to add shifts')
 parser.add_argument('--get_horizontal_flip', type=bool, default=True, help='whether to add horizontal flips')
-parser.add_argument('--get_vertical_flip', type=bool, default=True, help='whether to add vertical flips')
+parser.add_argument('--get_vertical_flip', type=bool, default=False, help='whether to add vertical flips')
 parser.add_argument('--batch_size', type=int, default=150, help='batch_size')
 parser.add_argument('--learn_rate', type=float, default=1e-3, help='learn_rate')
 parser.add_argument('--wandb', type=bool, default=True, help='enable WANDB logging')
-parser.add_argument('--epochs', type=int, default=20, help='number of epochs to run')
+parser.add_argument('--epochs', type=int, default=10, help='number of epochs to run')
 parser.add_argument('--full_data_pickle', type=str, default=None,
                     help='pickle file with pre-compiled full_data dataframe')
 parser.add_argument('--pickle_save_fullpath', type=str, default=None,

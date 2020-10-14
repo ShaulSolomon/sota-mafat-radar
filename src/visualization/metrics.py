@@ -14,6 +14,10 @@ from sklearn.manifold import TSNE
 # from tensorflow.keras.models import Model
 
 
+def model_scores(actual,pred):
+  fpr, tpr, _ = roc_curve(actual, pred)
+  return auc(fpr,tpr)
+
 def stats(pred, actual, mode="Validation"):
   """
   Computes the model ROC-AUC score and plots the ROC curve.
