@@ -32,7 +32,7 @@ class base3d(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.drop(self.batch(self.relu(self.fc1(out))))
         out = self.drop(self.batch(self.relu(self.fc2(out))))
-        return self.fc3(out)
+        return torch.sigmoid(self.fc3(out))
 
 
 class alex_3d(nn.Module):
@@ -65,7 +65,7 @@ class alex_3d(nn.Module):
 
     def forward(self, x):
         # Set 1
-        x = x.permute(0, 1, 4, 3, 2) # permutation from expected input dimensions of (batch_size, channels, short_time, long_time, scale)
+        #x = x.permute(0,1, 3, 2, 4) # permutation from expected input dimensions of (batch_size, channels, short_time, long_time, scale)
         out = self.conv_layer1(x)
         out = self.conv_layer2(out)
         out = self.conv_layer3(out)
@@ -73,4 +73,4 @@ class alex_3d(nn.Module):
         out = self.conv_layer5(out)
         out = out.view(out.size(0), -1)
         out = self.classifier(out)
-        return out
+        return torch.sigmoid(out)
