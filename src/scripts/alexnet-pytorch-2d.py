@@ -83,6 +83,10 @@ parser.add_argument('--tracks_in_memory', type=int, default=50,
                     help='How many tracks to keep in memory before flushing')
 parser.add_argument('--include_test_data', type=bool, default=False,
                     help='Include the complete test dataset into the train/val.')
+parser.add_argument('--mother_wavelet', type=str, default="cgau1",
+                    help='Mother wavelet transformation to use when creating scalograms')
+parser.add_argument('--scale', type=int, default=8,
+                    help='Number of scales for creating scalograms')
 
 args = parser.parse_args()
 
@@ -112,7 +116,7 @@ if os.path.exists(log_filename):
     os.remove(log_filename)
 
 logging.basicConfig(level=logging.INFO,
-                    filename='alexnet_pytorch.log',
+                    filename='alexnet_pytorch_2D.log',
                     format="%(asctime)s [%(levelname)s]|%(module)s:%(message)s", )
 logging.info("start")
 logger = logging.getLogger()
@@ -185,7 +189,7 @@ submission['prediction'] = model(test_x.to(device)).detach().cpu().numpy()
 submission['label'] = test_df['target_type']
 
 # Save submission
-submission.to_csv('submission.csv', index=False)
+submission.to_csv('2D-submission.csv', index=False)
 
 #print performance stats
 roc = roc_curve(submission['label'], submission['prediction'])
