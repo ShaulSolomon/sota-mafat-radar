@@ -1,10 +1,5 @@
-<<<<<<< HEAD
-# import sys
-# sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
-import random
-=======
->>>>>>> publication
 import numpy as np
+import random
 import os
 import pandas as pd
 from termcolor import colored
@@ -269,32 +264,8 @@ def pipeline_trainval_ram_reduced(PATH_DATA, config = {}):
 
   ### OPTIONALLY SPLITTING VAL INTO TEST
                 
-  return full_data
-
-<<<<<<< HEAD
-
-if __name__ == "__main__":
-                
-    print("hello world")
-    a, b, c, d = pipeline_trainval('/home/shaul/workspace/GitHub/sota-mafat-radar/data/')
-=======
-  ###########################################
-  ###             X,y splits              ###
-  ###########################################
-  
-  train_processed = specto_feat.data_preprocess(train_dict)
-  train_x = train_processed['iq_sweep_burst']
-  train_x = train_x.reshape(list(train_x.shape)+[1])
-  train_y = train_processed['target_type'].astype(int)
-
-  val_processed = specto_feat.data_preprocess(val_dict)
-  val_x =  val_processed['iq_sweep_burst']
-  val_x = val_x.reshape(list(val_x.shape)+[1])
-  val_y = val_processed['target_type'].astype(int)
-
-  return train_x, train_y, val_x, val_y
+  # return full_data
 
 if __name__ == "__main__":
   a,b,c,d = pipeline_trainval('/home/shaul/workspace/GitHub/sota-mafat-radar/data/')
 
->>>>>>> publication

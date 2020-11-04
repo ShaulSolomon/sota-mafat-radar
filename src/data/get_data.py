@@ -1,11 +1,4 @@
-<<<<<<< HEAD
-# import sys
-# sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
 import math
-
-=======
-import math
->>>>>>> publication
 import numpy as np
 import os
 import pandas as pd
@@ -22,10 +15,6 @@ from boto import s3
 import boto3
 from boto import boto
 
-<<<<<<< HEAD
-=======
-    
->>>>>>> publication
 spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
                              [2.444e-01, 1.534e-01, 6.728e-01],
                              [2.464e-01, 1.569e-01, 6.847e-01],
@@ -521,7 +510,6 @@ def split_train_val_as_pd(data,ratio=6):
   geolocation_id 1 and 4.
   Use the function only after the training set is complete and preprocessed.
 
-<<<<<<< HEAD
   Arguments:
     data -- {pandas} -- the data set to split as pandas dataframe
     ratio -- {int} -- ratio to make the split by
@@ -540,7 +528,3 @@ def split_train_val_as_pd(data,ratio=6):
 if __name__ == "__main__":
     print("hello world")
     a, b, c, d = classic_trainval('/home/shaul/workspace/GitHub/sota-mafat-radar/data/')
-=======
-if __name__ == "__main__":
-  a,b,c,d = classic_trainval('/home/shaul/workspace/GitHub/sota-mafat-radar/data/')
->>>>>>> publication
