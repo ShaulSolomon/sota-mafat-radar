@@ -2,16 +2,9 @@ import numpy as np
 import os
 import pickle
 import pandas as pd
-# import matplotlib.pyplot as plt
-# from sklearn.metrics import confusion_matrix
-# import itertools
-# from matplotlib.colors import LinearSegmentedColormap
-# import configparser
-# import matplotlib.patches as patches
-# import math
-# from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
-# from sklearn.manifold import TSNE
-# from tensorflow.keras.models import Model
+import sys
+sys.path.append(".")
+from src.data import feat_data
 
 
 def concatenate_track(data, track_id, snr_plot='both'):
@@ -30,7 +23,7 @@ def concatenate_track(data, track_id, snr_plot='both'):
     iq_list = []
     dopller_list = []
 
-    if (snr_plot != 'both') and (not has_single_snr_type(data, track_id, False)):
+    if (snr_plot != 'both') and (not feat_data.has_single_snr_type(data, track_id, False)):
       track_indices = np.where((data['track_id'] == track_id) & (data['snr_type'] == snr_plot))
     
     for i in track_indices:

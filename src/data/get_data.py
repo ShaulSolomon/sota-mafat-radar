@@ -1,12 +1,13 @@
-# import sys
-# sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
-
+import math
 import numpy as np
 import os
 import pandas as pd
 from termcolor import colored
 import configparser
 import pickle
+import sys
+sys.path.append(".")
+sys.path.append("..")
 from src.features import specto_feat
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
@@ -14,29 +15,6 @@ from boto import s3
 import boto3
 from boto import boto
 
-# import matplotlib.pyplot as plt
-# from sklearn.metrics import confusion_matrix
-# import itertools
-# from matplotlib.colors import LinearSegmentedColormap
-# import configparser
-# import matplotlib.patches as patches
-# import math
-# from sklearn.metrics import roc_auc_score, roc_curve, auc, accuracy_score
-# from sklearn.manifold import TSNE
-
-# ### fetch the credentials ###
-# creds_path = "credentials.ini"
-# config_parser = configparser.ConfigParser()
-# config_parser.read(creds_path)
-
-# PATH_ROOT = config_parser['MAIN']["PATH_ROOT"]
-# PATH_DATA = config_parser['MAIN']["PATH_DATA"]
-# #####
-
-# The function append_dict is for concatenating the training set 
-# with the Auxiliary data set segments
-
-#import ipdb -> add ipdb.set_trace() where you need the breakpoint
     
 spectrogram_cmap = np.array([[2.422e-01, 1.504e-01, 6.603e-01],
        [2.444e-01, 1.534e-01, 6.728e-01],
@@ -502,8 +480,6 @@ def split_train_val_as_df(data,ratio=6):
   idx = ((data['geolocation_id'] == 4) | (data['geolocation_id'] == 1))\
    & (data['segment_id'] % ratio == 0)
 
-  
-
   train_dict = dict()
   val_dict = dict()
   for column in data.keys():
@@ -512,9 +488,5 @@ def split_train_val_as_df(data,ratio=6):
   return train_dict, val_dict
 
 
-
-
-
 if __name__ == "__main__":
-  print("hello world")
   a,b,c,d = classic_trainval('/home/shaul/workspace/GitHub/sota-mafat-radar/data/')

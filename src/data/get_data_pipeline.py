@@ -1,13 +1,13 @@
-# import sys
-# sys.path.append('/home/shaul/workspace/GitHub/sota-mafat-radar')
-
 import numpy as np
 import os
 import pandas as pd
 from termcolor import colored
 import configparser
 import pickle
-from src.data import get_data
+import sys
+sys.path.append("..")
+sys.path.append('.')
+import get_data
 from src.features import augmentations
 from src.features import specto_feat
 from src.features import add_data
@@ -108,6 +108,5 @@ def pipeline_trainval(PATH_DATA, config = {}):
   return train_x, train_y, val_x, val_y
 
 if __name__ == "__main__":
-  print("hello world")
   a,b,c,d = pipeline_trainval('/home/shaul/workspace/GitHub/sota-mafat-radar/data/')
 
