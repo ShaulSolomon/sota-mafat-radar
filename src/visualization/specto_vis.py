@@ -314,10 +314,14 @@ def plot_spectrogram(iq_burst, doppler_burst, type = 'spectrogram', kernel = 'cg
     else:
         color_map = plt.get_cmap(color_map_name)
 
+<<<<<<< HEAD
     if type== 'scalogram':
         iq =  specto_feat.calculate_scalogram_2d(iq_burst, flip=flip, transformation = kernel)
     else:
         iq = specto_feat.calculate_spectrogram_2d(iq_burst, flip=flip)
+=======
+    iq = iq_burst
+>>>>>>> publication
 #     if theta:
 #         iq = rotate_spectogram(iq, theta)
     if return_spec:

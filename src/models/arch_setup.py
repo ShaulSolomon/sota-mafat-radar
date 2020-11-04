@@ -6,8 +6,11 @@ from sklearn.metrics import roc_auc_score, roc_curve, auc
 import matplotlib.pyplot as plt
 from src.visualization import metrics
 from tqdm import tqdm
+<<<<<<< HEAD
 
 logger = logging.getLogger()
+=======
+>>>>>>> publication
 
 
 class DS(Dataset):
@@ -66,9 +69,16 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
         tr_y_hat = np.array([])
         tr_labels = np.array([])
 
+<<<<<<< HEAD
         # train loop
         for step, batch in enumerate(tqdm(tr_loader)):
             model.train()
+=======
+        #train loop
+        pbar = tqdm(total=len(tr_loader),position=0,leave=True)
+
+        for step,batch in enumerate(tr_loader):
+>>>>>>> publication
 
             if step % 100 == 0:
                 logger.info(f"step {step}")
@@ -78,8 +88,16 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
             tr_labels = np.append(tr_labels, labels)
 
 
+<<<<<<< HEAD
             data = data.to(device,dtype=torch.float32)
             labels = labels.to(device,dtype=torch.float32)
+=======
+            # added
+            if snr:
+              outputs = model(data,snr)
+            else:
+              outputs = model(data)
+>>>>>>> publication
 
             outputs = model(data)
             labels = labels.view(-1,1)
@@ -103,6 +121,8 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
+            pbar.update()
+
         val_loss = 0
         val_size = 0
         val_y_hat = np.array([])
@@ -114,7 +134,26 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
         model.eval()
         with torch.no_grad():
 
+<<<<<<< HEAD
             for step, batch in enumerate(val_loader):
+=======
+            data = data.to(device,dtype=torch.float32)
+            labels = labels.to(device,dtype=torch.float32)
+            outputs = model(data)
+
+            if isinstance(data, list):
+              snr = data[1].to(device,dtype=torch.float32)
+              data = data[0]
+
+
+            if snr is not None:
+              outputs = model(data,snr)
+            else:
+              outputs = model(data)
+
+            labels = labels.view(-1,1)
+            outputs = outputs.view(-1,1)
+>>>>>>> publication
 
 
                 data = batch['output_array'].unsqueeze(1)
@@ -133,10 +172,20 @@ def train_epochs(tr_loader, val_loader, model, criterion, optimizer, num_epochs,
                 val_loss += loss.item()
                 val_size += data.shape[0]
 
+<<<<<<< HEAD
                 if torch.cuda.is_available():
                     val_y_hat = np.append(val_y_hat, outputs.detach().cpu().numpy())
                 else:
                     val_y_hat = np.append(val_y_hat, outputs.detach().numpy())
+=======
+        epoch_log = {'epoch': epoch+1,
+                     'loss': tr_loss / tr_size,
+                     'auc': auc(tr_fpr, tr_tpr),
+                     'acc': accuracy_calc(tr_y_hat,tr_labels),
+                     'val_loss': val_loss / val_size ,
+                     'val_auc': auc(val_fpr,val_tpr),
+                     'val_acc': accuracy_calc(val_y_hat,val_labels)}
+>>>>>>> publication
 
             tr_fpr, tr_tpr, _ = roc_curve(tr_labels, tr_y_hat)
             val_fpr, val_tpr, _ = roc_curve(val_labels, val_y_hat)
