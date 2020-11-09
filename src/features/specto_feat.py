@@ -192,14 +192,13 @@ def data_preprocess(data, df_type = 'spectrogram' , flip = True, kernel = 'cgau1
       X.append(calculate_scalogram(data['iq_sweep_burst'][i], flip = flip, transformation= kernel))
       pbar.update()
     pbar.close()
-    data['scalogram'] = np.array(X)
   else:
     for i in range(len(data['iq_sweep_burst'])):
       iq = fft(data['iq_sweep_burst'][i])
       iq = max_value_on_doppler(iq,data['doppler_burst'][i])
       iq = normalize(iq)
       X.append(iq)
-    data['iq_sweep_burst'] = np.array(X)
+  data['iq_sweep_burst'] = np.array(X)
 
   if 'target_type' in data:
     data['target_type'][data['target_type'] == 'animal'] = 0
@@ -232,9 +231,8 @@ def calculate_scalogram(iq_matrix, flip=True, transformation = 'cgau1'):
         # preform hann smoothing on a column - results in a singal j-2 sized column
         # preform py.cwt transformation, returns coefficients and frequencies
         
-        coef, freqs=pywt.cwt(hann(iq_matrix[:, j][:, np.newaxis]), np.arange(1,9), transformation)
+        coef, freqs=pywt.cwt(hann(iq_matrix[:, j]), np.arange(1,9), transformation)
         # coefficient matrix returns as a (num_scalers-1, j-2 , 1) array, transform it into a 2-d array
-        # note: the feqs is a returned value from cwt function that we don't use
 
         if flip:
             coef = np.flip(coef, axis=0)
